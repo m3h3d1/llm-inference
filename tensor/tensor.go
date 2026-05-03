@@ -91,18 +91,15 @@ func Ones(batch, seq, embed int) *Tensor {
 	return t
 }
 
-// MatMul performs matrix multiplication: this (a,b) × other (b,c) = result (a,c)
-// for attention QK^T computation
+// MatMul performs matrix multiplication: this (batch, seq1, embed) × other (batch, embed, seq2) = (batch, seq1, seq2)
 func (t *Tensor) MatMul(other *Tensor) *Tensor {
 	dims1 := t.Dimensions()
 	dims2 := other.Dimensions()
 	
-	// Handle 3D: (batch, seq1, embed1) × (batch, seq2, embed1)
-	// Result: (batch, seq1, seq2)
 	batch := dims1[0]
 	seq1 := dims1[1]
 	embed := dims1[2]
-	seq2 := dims2[1]
+	seq2 := dims2[2]
 	
 	result := NewTensor(batch, seq1, seq2)
 	
@@ -111,7 +108,7 @@ func (t *Tensor) MatMul(other *Tensor) *Tensor {
 			for j := 0; j < seq2; j++ {
 				var sum float64
 				for e := 0; e < embed; e++ {
-					sum += t.At(b, i, e) * other.At(b, j, e)
+					sum += t.At(b, i, e) * other.At(b, e, j)
 				}
 				result.Set(b, i, j, sum)
 			}
