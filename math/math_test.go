@@ -217,24 +217,22 @@ func TestLayerNormShape(t *testing.T) {
 func TestCausalMask(t *testing.T) {
 	mask := CreateCausalMask(3)
 
-	// Verify shape
-	if len(mask) != 3 {
-		t.Errorf("Expected 3 rows, got %d", len(mask))
-	}
-	if len(mask[0]) != 3 {
-		t.Errorf("Expected 3 cols, got %d", len(mask[0]))
+	// Verify shape: (1, 3, 3)
+	dims := mask.Dimensions()
+	if dims[0] != 1 || dims[1] != 3 || dims[2] != 3 {
+		t.Errorf("Expected shape (1, 3, 3), got %v", dims)
 	}
 
 	// Verify upper triangle is -inf (j > i)
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 3; j++ {
 			if j > i {
-				if !math.IsInf(mask[i][j], -1) {
-					t.Errorf("Expected -inf at [%d][%d], got %f", i, j, mask[i][j])
+				if !math.IsInf(mask.At(0, i, j), -1) {
+					t.Errorf("Expected -inf at [%d][%d], got %f", i, j, mask.At(0, i, j))
 				}
 			} else {
-				if mask[i][j] != 0.0 {
-					t.Errorf("Expected 0 at [%d][%d], got %f", i, j, mask[i][j])
+				if mask.At(0, i, j) != 0.0 {
+					t.Errorf("Expected 0 at [%d][%d], got %f", i, j, mask.At(0, i, j))
 				}
 			}
 		}
@@ -245,15 +243,16 @@ func TestCausalMask(t *testing.T) {
 func TestCausalMaskSize4(t *testing.T) {
 	mask := CreateCausalMask(4)
 
-	if len(mask) != 4 || len(mask[0]) != 4 {
-		t.Errorf("Expected 4x4, got %dx%d", len(mask), len(mask[0]))
+	dims := mask.Dimensions()
+	if dims[1] != 4 || dims[2] != 4 {
+		t.Errorf("Expected (1, 4, 4), got %v", dims)
 	}
 
 	// Verify upper triangle is -inf
-	if !math.IsInf(mask[2][3], -1) {
-		t.Errorf("Expected -inf at [2][3], got %f", mask[2][3])
+	if !math.IsInf(mask.At(0, 2, 3), -1) {
+		t.Errorf("Expected -inf at [2][3], got %f", mask.At(0, 2, 3))
 	}
-	if mask[0][0] != 0.0 {
-		t.Errorf("Expected 0 at [0][0], got %f", mask[0][0])
+	if mask.At(0, 0, 0) != 0.0 {
+		t.Errorf("Expected 0 at [0][0], got %f", mask.At(0, 0, 0))
 	}
 }

@@ -128,17 +128,17 @@ func LayerNorm(t *tensor.Tensor, gamma, beta *tensor.Tensor, eps float64) *tenso
 
 // CreateCausalMask creates a causal mask for masked attention
 // Upper triangle (where j > i) is set to -inf
-func CreateCausalMask(size int) [][]float64 {
-	mask := make([][]float64, size)
+// Returns tensor of shape (1, size, size)
+func CreateCausalMask(size int) *tensor.Tensor {
+	result := tensor.NewTensor(1, size, size)
 	for i := 0; i < size; i++ {
-		mask[i] = make([]float64, size)
 		for j := 0; j < size; j++ {
 			if j > i {
-				mask[i][j] = -math.Inf(1)
+				result.Set(0, i, j, -math.Inf(1))
 			} else {
-				mask[i][j] = 0.0
+				result.Set(0, i, j, 0.0)
 			}
 		}
 	}
-	return mask
+	return result
 }
