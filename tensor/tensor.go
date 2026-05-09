@@ -91,6 +91,91 @@ func Ones(batch, seq, embed int) *Tensor {
 	return t
 }
 
+// Scale multiplies all elements by a scalar factor
+func (t *Tensor) Scale(factor float64) *Tensor {
+	result := NewTensor(t.Batch(), t.Seq(), t.Embed())
+	for i := range t.Data {
+		result.Data[i] = t.Data[i] * factor
+	}
+	return result
+}
+
+// Add performs element-wise addition with broadcasting
+func (t *Tensor) Add(other *Tensor) *Tensor {
+	dims1 := t.Dimensions()
+	dims2 := other.Dimensions()
+
+	// Determine result shape and broadcasting
+	resShape := [3]int{}
+	for i := 0; i < 3; i++ {
+		if dims1[i] == dims2[i] {
+			resShape[i] = dims1[i]
+		} else if dims1[i] == 1 {
+			resShape[i] = dims2[i]
+		} else if dims2[i] == 1 {
+			resShape[i] = dims1[i]
+		} else {
+			return nil // Incompatible shapes
+		}
+	}
+
+	result := NewTensor(resShape[0], resShape[1], resShape[2])
+
+	for b := 0; b < resShape[0]; b++ {
+		for s := 0; s < resShape[1]; s++ {
+			for e := 0; e < resShape[2]; e++ {
+				// Map indices back to source tensors (broadcasting)
+				b1, s1, e1 := b, s, e
+				if dims1[0] == 1 { b1 = 0 }
+				if dims1[1] == 1 { s1 = 0 }
+				if dims1[2] == 1 { e1 = 0 }
+
+				b2, s2, e2 := b, s, e
+				if dims2[0] == 1 { b2 = 0 }
+				if dims2[1] == 1 { s2 = 0 }
+				if dims2[2] == 1 { e2 = 0 }
+
+				result.Set(b, s, e, t.At(b1, s1, e1)+other.At(b2, s2, e2))
+			}
+		}
+	}
+	return result
+}
+
+func Concat(tensors []*Tensor) *Tensor {
+	if len(tensors) == 0 {
+		return nil
+	}
+	
+	dims := tensors[0].Dimensions()
+	batch, seq, _ := dims[0], dims[1], dims[2]
+	
+	totalEmbed := 0
+	for _, t := range tensors {
+		tDims := t.Dimensions()
+		if tDims[0] != batch || tDims[1] != seq {
+			return nil // Incompatible batch or seq
+		}
+		totalEmbed += tDims[2]
+	}
+	
+	result := NewTensor(batch, seq, totalEmbed)
+	
+	for b := 0; b < batch; b++ {
+		for s := 0; s < seq; s++ {
+			currentEmbed := 0
+			for _, t := range tensors {
+				tEmbed := t.Dimensions()[2]
+				for e := 0; e < tEmbed; e++ {
+					result.Set(b, s, currentEmbed+e, t.At(b, s, e))
+				}
+				currentEmbed += tEmbed
+			}
+		}
+	}
+	return result
+}
+
 // MatMul performs matrix multiplication: this (batch, seq1, embed) × other (batch, embed, seq2) = (batch, seq1, seq2)
 func (t *Tensor) MatMul(other *Tensor) *Tensor {
 	dims1 := t.Dimensions()

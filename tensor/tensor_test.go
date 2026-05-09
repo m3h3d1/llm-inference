@@ -190,3 +190,52 @@ func TestFlattenAndIdx(t *testing.T) {
 		t.Errorf("AtIdx failed, expected 30, got %f", A.AtIdx(2))
 	}
 }
+
+// TestScale verifies scalar multiplication
+func TestScale(t *testing.T) {
+	A := NewTensor(1, 1, 3)
+	A.Set(0, 0, 0, 1.0)
+	A.Set(0, 0, 1, 2.0)
+	A.Set(0, 0, 2, 3.0)
+
+	scaled := A.Scale(0.5)
+
+	if scaled.At(0, 0, 0) != 0.5 || scaled.At(0, 0, 1) != 1.0 || scaled.At(0, 0, 2) != 1.5 {
+		t.Errorf("Scale failed, got %v", scaled.Data)
+	}
+}
+
+// TestAdd verifies element-wise addition with broadcasting
+func TestAdd(t *testing.T) {
+	// Case 1: Identical shapes
+	A := NewTensor(1, 1, 2)
+	A.Set(0, 0, 0, 1.0)
+	A.Set(0, 0, 1, 2.0)
+	B := NewTensor(1, 1, 2)
+	B.Set(0, 0, 0, 3.0)
+	B.Set(0, 0, 1, 4.0)
+	
+	sum := A.Add(B)
+	if sum.At(0, 0, 0) != 4.0 || sum.At(0, 0, 1) != 6.0 {
+		t.Errorf("Simple Add failed, got %v", sum.Data)
+	}
+
+	// Case 2: Batch broadcasting (B, S, E) + (1, S, E)
+	A2 := NewTensor(2, 1, 2)
+	A2.Set(0, 0, 0, 1.0); A2.Set(0, 0, 1, 1.0)
+	A2.Set(1, 0, 0, 2.0); A2.Set(1, 0, 1, 2.0)
+	B2 := NewTensor(1, 1, 2)
+	B2.Set(0, 0, 0, 10.0); B2.Set(0, 0, 1, 20.0)
+
+	sum2 := A2.Add(B2)
+	if sum2.At(0, 0, 0) != 11.0 || sum2.At(1, 0, 0) != 12.0 {
+		t.Errorf("Batch broadcasting Add failed, got %v", sum2.Data)
+	}
+
+	// Case 3: Invalid shape
+	C := NewTensor(1, 1, 3)
+	res := A.Add(C)
+	if res != nil {
+		t.Error("Expected nil for invalid shape addition")
+	}
+}
