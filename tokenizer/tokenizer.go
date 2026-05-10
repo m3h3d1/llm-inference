@@ -1,5 +1,11 @@
 package tokenizer
 
+import (
+	"bufio"
+	"encoding/json"
+	"os"
+)
+
 type Tokenizer struct {
 	Vocab  map[string]int
 	Merges [][2]string
@@ -20,6 +26,60 @@ func NewMock() *Tokenizer {
 			{"l", "l"}, // Merge "l"+"l" -> "ll" (Priority 1)
 		},
 	}
+}
+
+func NewFromFiles(vocabPath, mergesPath string) (*Tokenizer, error) {
+	tok := &Tokenizer{
+		Vocab:  make(map[string]int),
+		Merges: make([][2]string, 0),
+	}
+
+	// Load Vocab (JSON)
+	data, err := os.ReadFile(vocabPath)
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(data, &tok.Vocab); err != nil {
+		return nil, err
+	}
+
+	// Load Merges (Text: line by line)
+	file, err := os.Open(mergesPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		// Parse: "a b" -> ["a", "b"]
+		parts := []string{}
+		current := ""
+		for _, r := range line {
+			if string(r) == " " {
+				if current != "" {
+					parts = append(parts, current)
+					current = ""
+				}
+			} else {
+				current += string(r)
+			}
+		}
+		if current != "" {
+			parts = append(parts, current)
+		}
+
+		if len(parts) == 2 {
+			tok.Merges = append(tok.Merges, [2]string{parts[0], parts[1]})
+		}
+	}
+
+	return tok, scanner.Err()
 }
 
 func (t *Tokenizer) Encode(text string) []int {

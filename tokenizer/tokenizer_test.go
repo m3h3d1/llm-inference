@@ -49,3 +49,50 @@ func TestRoundTrip(t *testing.T) {
 		t.Errorf("RoundTrip failed: %q -> %v -> %q", original, encoded, decoded)
 	}
 }
+
+func TestNewFromFiles(t *testing.T) {
+	t.Run("load gpt2 assets", func(t *testing.T) {
+		// Paths are relative to project root
+		tok, err := NewFromFiles("../assets/tokenizer/vocab.json", "../assets/tokenizer/merges.txt")
+		if err != nil {
+			t.Fatalf("Failed to load files: %v", err)
+		}
+
+		// Check vocab is loaded
+		if len(tok.Vocab) == 0 {
+			t.Error("Vocab is empty")
+		}
+
+		// Check merges are loaded
+		if len(tok.Merges) == 0 {
+			t.Error("Merges is empty")
+		}
+
+		// Log counts
+		t.Logf("Vocab size: %d", len(tok.Vocab))
+		t.Logf("Merges size: %d", len(tok.Merges))
+	})
+}
+
+func TestIntegration(t *testing.T) {
+	t.Skip("Integration test requires full GPT-2 assets")
+
+	t.Run("encode with real data", func(t *testing.T) {
+		tok, err := NewFromFiles("assets/tokenizer/vocab.json", "assets/tokenizer/merges.txt")
+		if err != nil {
+			t.Fatalf("Failed to load: %v", err)
+		}
+
+		input := "hello world"
+		ids := tok.Encode(input)
+		if len(ids) == 0 {
+			t.Error("Encode returned empty")
+		}
+
+		// Should be roundtripable
+		decoded := tok.Decode(ids)
+		if decoded != input {
+			t.Errorf("RoundTrip failed: %q -> %v -> %q", input, ids, decoded)
+		}
+	})
+}
