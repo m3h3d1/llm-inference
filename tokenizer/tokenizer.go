@@ -4,31 +4,42 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
+	"strings"
 )
 
 type Tokenizer struct {
 	Vocab           map[string]int
+	revVocab       map[int]string
 	Merges          [][2]string
 	bytesToUnicode  map[byte]rune
 	unicodeToBytes  map[rune]byte
 }
 
 func NewMock() *Tokenizer {
-	return &Tokenizer{
-		Vocab: map[string]int{
-			"h":  0,
-			"e":  1,
-			"l":  2,
-			"o":  3,
-			"he": 4,
-			"ll": 5,
-		},
+	vocab := map[string]int{
+		"h":  0,
+		"e":  1,
+		"l":  2,
+		"o":  3,
+		"he": 4,
+		"ll": 5,
+	}
+	
+	tok := &Tokenizer{
+		Vocab: vocab,
 		Merges: [][2]string{
 			{"h", "e"},
 			{"l", "l"},
 		},
-		bytesToUnicode: make(map[byte]rune),
-		unicodeToBytes: make(map[rune]byte),
+	}
+	tok.buildRevVocab()
+	return tok
+}
+
+func (t *Tokenizer) buildRevVocab() {
+	t.revVocab = make(map[int]string)
+	for k, v := range t.Vocab {
+		t.revVocab[v] = k
 	}
 }
 
@@ -58,29 +69,15 @@ func NewFromFiles(vocabPath, mergesPath string) (*Tokenizer, error) {
 		if line == "" {
 			continue
 		}
-		parts := []string{}
-		current := ""
-		for _, r := range line {
-			if string(r) == " " {
-				if current != "" {
-					parts = append(parts, current)
-					current = ""
-				}
-			} else {
-				current += string(r)
-			}
-		}
-		if current != "" {
-			parts = append(parts, current)
-		}
+		parts := strings.Fields(line)
 		if len(parts) == 2 {
 			tok.Merges = append(tok.Merges, [2]string{parts[0], parts[1]})
 		}
 	}
 
-	// GPT-2 official bytesToUnicode mapping
 	tok.bytesToUnicode = make(map[byte]rune)
 	tok.unicodeToBytes = make(map[rune]byte)
+	
 	for b := 0; b < 256; b++ {
 		byteVal := byte(b)
 		var r rune
@@ -93,6 +90,7 @@ func NewFromFiles(vocabPath, mergesPath string) (*Tokenizer, error) {
 		tok.unicodeToBytes[r] = byteVal
 	}
 
+	tok.buildRevVocab()
 	return tok, scanner.Err()
 }
 
@@ -141,14 +139,9 @@ func (t *Tokenizer) Encode(text string) []int {
 }
 
 func (t *Tokenizer) Decode(ids []int) string {
-	revVocab := make(map[int]string)
-	for k, v := range t.Vocab {
-		revVocab[v] = k
-	}
-
 	tokens := make([]string, len(ids))
 	for i, id := range ids {
-		token, ok := revVocab[id]
+		token, ok := t.revVocab[id]
 		if !ok {
 			token = ""
 		}
