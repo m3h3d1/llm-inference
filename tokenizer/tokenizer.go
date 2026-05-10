@@ -7,8 +7,10 @@ import (
 )
 
 type Tokenizer struct {
-	Vocab  map[string]int
-	Merges [][2]string
+	Vocab           map[string]int
+	Merges          [][2]string
+	bytesToUnicode  map[byte]rune
+	unicodeToBytes  map[rune]byte
 }
 
 func NewMock() *Tokenizer {
@@ -22,9 +24,11 @@ func NewMock() *Tokenizer {
 			"ll": 5,
 		},
 		Merges: [][2]string{
-			{"h", "e"}, // Merge "h"+"e" -> "he" (Priority 0)
-			{"l", "l"}, // Merge "l"+"l" -> "ll" (Priority 1)
+			{"h", "e"},
+			{"l", "l"},
 		},
+		bytesToUnicode: make(map[byte]rune),
+		unicodeToBytes: make(map[rune]byte),
 	}
 }
 
@@ -34,7 +38,6 @@ func NewFromFiles(vocabPath, mergesPath string) (*Tokenizer, error) {
 		Merges: make([][2]string, 0),
 	}
 
-	// Load Vocab (JSON)
 	data, err := os.ReadFile(vocabPath)
 	if err != nil {
 		return nil, err
@@ -43,7 +46,6 @@ func NewFromFiles(vocabPath, mergesPath string) (*Tokenizer, error) {
 		return nil, err
 	}
 
-	// Load Merges (Text: line by line)
 	file, err := os.Open(mergesPath)
 	if err != nil {
 		return nil, err
@@ -56,8 +58,6 @@ func NewFromFiles(vocabPath, mergesPath string) (*Tokenizer, error) {
 		if line == "" {
 			continue
 		}
-
-		// Parse: "a b" -> ["a", "b"]
 		parts := []string{}
 		current := ""
 		for _, r := range line {
@@ -73,35 +73,47 @@ func NewFromFiles(vocabPath, mergesPath string) (*Tokenizer, error) {
 		if current != "" {
 			parts = append(parts, current)
 		}
-
 		if len(parts) == 2 {
 			tok.Merges = append(tok.Merges, [2]string{parts[0], parts[1]})
 		}
+	}
+
+	// GPT-2 official bytesToUnicode mapping
+	tok.bytesToUnicode = make(map[byte]rune)
+	tok.unicodeToBytes = make(map[rune]byte)
+	for b := 0; b < 256; b++ {
+		byteVal := byte(b)
+		var r rune
+		if (b >= 33 && b <= 126) || b == 10 || b == 13 {
+			r = rune(b)
+		} else {
+			r = rune(b + 256)
+		}
+		tok.bytesToUnicode[byteVal] = r
+		tok.unicodeToBytes[r] = byteVal
 	}
 
 	return tok, scanner.Err()
 }
 
 func (t *Tokenizer) Encode(text string) []int {
-	// 1. Split into individual rune strings
-	tokens := []string{}
-	for _, r := range text {
-		tokens = append(tokens, string(r))
+	bytes := []byte(text)
+	tokens := make([]string, len(bytes))
+	for i, b := range bytes {
+		if t.bytesToUnicode != nil {
+			tokens[i] = string(t.bytesToUnicode[b])
+		} else {
+			tokens[i] = string(b)
+		}
 	}
 
-	// 2. BPE Loop (Limit iterations for safety)
-	for iterations := 0; iterations < 100; iterations++ {
+	for iterations := 0; iterations < 10000; iterations++ {
 		merged := false
-
-		// Scan merges by priority
 		for _, merge := range t.Merges {
-			// Scan tokens to find this pair
 			for i := 0; i < len(tokens)-1; i++ {
 				if tokens[i] == merge[0] && tokens[i+1] == merge[1] {
-					// Merge found! Replace tokens[i] and tokens[i+1] with merged token
 					newToken := merge[0] + merge[1]
 					tokens[i] = newToken
-					// Remove tokens[i+1]
 					copy(tokens[i+1:], tokens[i+2:])
 					tokens = tokens[:len(tokens)-1]
 					merged = true
@@ -109,21 +121,19 @@ func (t *Tokenizer) Encode(text string) []int {
 				}
 			}
 			if merged {
-				break // Restart merge search with new tokens
+				break
 			}
 		}
-
 		if !merged {
-			break // No more merges found
+			break
 		}
 	}
 
-	// 3. Map to IDs
 	ids := make([]int, len(tokens))
 	for i, token := range tokens {
 		id, ok := t.Vocab[token]
 		if !ok {
-			id = 0 // Handle unknown
+			id = 0
 		}
 		ids[i] = id
 	}
@@ -131,13 +141,11 @@ func (t *Tokenizer) Encode(text string) []int {
 }
 
 func (t *Tokenizer) Decode(ids []int) string {
-	// 1. Build reverse vocab
 	revVocab := make(map[int]string)
 	for k, v := range t.Vocab {
 		revVocab[v] = k
 	}
 
-	// 2. Map IDs to strings
 	tokens := make([]string, len(ids))
 	for i, id := range ids {
 		token, ok := revVocab[id]
@@ -147,10 +155,20 @@ func (t *Tokenizer) Decode(ids []int) string {
 		tokens[i] = token
 	}
 
-	// 3. Join
-	result := ""
+	var resultBytes []byte
 	for _, token := range tokens {
-		result += token
+		for _, r := range token {
+			if t.unicodeToBytes != nil {
+				if b, ok := t.unicodeToBytes[r]; ok {
+					resultBytes = append(resultBytes, b)
+				} else {
+					resultBytes = append(resultBytes, []byte(string(r))...)
+				}
+			} else {
+				resultBytes = append(resultBytes, []byte(string(r))...)
+			}
+		}
 	}
-	return result
+
+	return string(resultBytes)
 }

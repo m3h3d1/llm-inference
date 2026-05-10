@@ -75,10 +75,8 @@ func TestNewFromFiles(t *testing.T) {
 }
 
 func TestIntegration(t *testing.T) {
-	t.Skip("Integration test requires full GPT-2 assets")
-
 	t.Run("encode with real data", func(t *testing.T) {
-		tok, err := NewFromFiles("assets/tokenizer/vocab.json", "assets/tokenizer/merges.txt")
+		tok, err := NewFromFiles("../assets/tokenizer/vocab.json", "../assets/tokenizer/merges.txt")
 		if err != nil {
 			t.Fatalf("Failed to load: %v", err)
 		}
