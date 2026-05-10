@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/llm/config"
+	"github.com/llm/tokenizer"
 	"github.com/llm/tensor"
 )
 
@@ -81,5 +82,32 @@ func TestGPTModel(t *testing.T) {
 	dims := logits.Dimensions()
 	if dims[0] != 1 || dims[1] != 5 || dims[2] != cfg.VocabSize {
 		t.Errorf("Expected shape (1, 5, %d), got %v", cfg.VocabSize, dims)
+	}
+}
+
+func TestIntegrationWithTokenizer(t *testing.T) {
+	// Only run if we have assets (skip if running in isolation)
+	cfg := config.DefaultConfig
+	cfg.NLayers = 2
+	cfg.EmbDim = 16
+
+	tok := tokenizer.NewMock()
+	model := NewGPTModel(cfg)
+
+	prompt := "hello"
+	ids := tok.Encode(prompt)
+	if len(ids) == 0 {
+		t.Fatal("Tokenizer returned empty IDs")
+	}
+
+	logits := model.Forward(ids)
+	if logits == nil {
+		t.Fatal("Logits should not be nil after forward pass")
+	}
+
+	dims := logits.Dimensions()
+	expectedSeq := len(ids)
+	if dims[1] != expectedSeq || dims[2] != cfg.VocabSize {
+		t.Errorf("Expected shape (1, %d, %d), got %v", expectedSeq, cfg.VocabSize, dims)
 	}
 }
