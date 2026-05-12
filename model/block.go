@@ -9,29 +9,45 @@ import (
 type TransformerBlock struct {
 	Attention *attention.SelfAttention
 	FFN       *FeedForward
-	LN1       *tensor.Tensor // We'll use a simplified LayerNorm state or just call math.LayerNorm
-	LN2       *tensor.Tensor
+	LN1Gamma  *tensor.Tensor
+	LN1Beta   *tensor.Tensor
+	LN2Gamma  *tensor.Tensor
+	LN2Beta   *tensor.Tensor
 	dModel    int
 }
 
 func NewTransformerBlock(dModel int) *TransformerBlock {
+	lN1Gamma := tensor.NewTensor(1, 1, dModel)
+	lN1Beta := tensor.NewTensor(1, 1, dModel)
+	lN2Gamma := tensor.NewTensor(1, 1, dModel)
+	lN2Beta := tensor.NewTensor(1, 1, dModel)
+
+	for i := 0; i < dModel; i++ {
+		lN1Gamma.Set(0, 0, i, 1.0)
+		lN2Gamma.Set(0, 0, i, 1.0)
+	}
+
 	return &TransformerBlock{
 		Attention: attention.NewSelfAttention(dModel),
 		FFN:       NewFeedForward(dModel, dModel*4),
+		LN1Gamma:  lN1Gamma,
+		LN1Beta:   lN1Beta,
+		LN2Gamma:  lN2Gamma,
+		LN2Beta:   lN2Beta,
 		dModel:    dModel,
 	}
 }
 
 func (tb *TransformerBlock) Forward(x *tensor.Tensor, mask *tensor.Tensor) *tensor.Tensor {
 	// Pre-LN architecture: x = x + Attention(LN(x))
-	
+
 	// 1. Attention sub-layer
-	norm1 := math.LayerNorm(x, nil, nil, 1e-5)
+	norm1 := math.LayerNorm(x, tb.LN1Gamma, tb.LN1Beta, 1e-5)
 	attnOut := tb.Attention.Forward(norm1, mask)
 	x = x.Add(attnOut) // Residual connection
 
 	// 2. MLP sub-layer
-	norm2 := math.LayerNorm(x, nil, nil, 1e-5)
+	norm2 := math.LayerNorm(x, tb.LN2Gamma, tb.LN2Beta, 1e-5)
 	mlpOut := tb.FFN.Forward(norm2)
 	x = x.Add(mlpOut) // Residual connection
 

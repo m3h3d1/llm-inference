@@ -8,11 +8,12 @@ import (
 )
 
 type GPTModel struct {
-	Cfg         config.Config
-	Embeddings  *Embeddings
-	Blocks      []*TransformerBlock
-	FinalNorm   *tensor.Tensor // simplified, we'll call math.LayerNorm
-	OutputProj  *linear.Linear
+	Cfg            config.Config
+	Embeddings     *Embeddings
+	Blocks         []*TransformerBlock
+	FinalNormGamma *tensor.Tensor
+	FinalNormBeta  *tensor.Tensor
+	OutputProj     *linear.Linear
 }
 
 func NewGPTModel(cfg config.Config) *GPTModel {
@@ -21,11 +22,19 @@ func NewGPTModel(cfg config.Config) *GPTModel {
 		blocks[i] = NewTransformerBlock(cfg.EmbDim)
 	}
 
+	finalNormGamma := tensor.NewTensor(1, 1, cfg.EmbDim)
+	finalNormBeta := tensor.NewTensor(1, 1, cfg.EmbDim)
+	for i := 0; i < cfg.EmbDim; i++ {
+		finalNormGamma.Set(0, 0, i, 1.0)
+	}
+
 	return &GPTModel{
-		Cfg:        cfg,
-		Embeddings: NewEmbeddings(cfg.VocabSize, cfg.ContextLen, cfg.EmbDim),
-		Blocks:     blocks,
-		OutputProj: linear.NewLinear(cfg.EmbDim, cfg.VocabSize, false),
+		Cfg:            cfg,
+		Embeddings:     NewEmbeddings(cfg.VocabSize, cfg.ContextLen, cfg.EmbDim),
+		Blocks:         blocks,
+		FinalNormGamma: finalNormGamma,
+		FinalNormBeta:  finalNormBeta,
+		OutputProj:     linear.NewLinear(cfg.EmbDim, cfg.VocabSize, false),
 	}
 }
 
@@ -39,7 +48,7 @@ func (m *GPTModel) Forward(tokenIDs []int) *tensor.Tensor {
 	}
 
 	// 3. Final LayerNorm
-	x = math.LayerNorm(x, nil, nil, 1e-5)
+	x = math.LayerNorm(x, m.FinalNormGamma, m.FinalNormBeta, 1e-5)
 
 	// 4. Output Projection
 	logits := m.OutputProj.Forward(x)
