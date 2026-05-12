@@ -37,3 +37,5 @@ weights/data/
 outputs/
 logs/
 *.md
+
+test_weights.json

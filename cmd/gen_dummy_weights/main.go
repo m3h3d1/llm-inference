@@ -20,19 +20,22 @@ func main() {
 	}
 	gpt := model.NewGPTModel(cfg)
 
-	outputPath := "test_weights.json"
-	fmt.Printf("Generating dummy weights to: %s\n", outputPath)
-	
-	if err := weights.SaveWeightsJSON(gpt, outputPath); err != nil {
-		fmt.Printf("Error saving weights: %v\n", err)
-		return
-	}
-
-	fmt.Println("Dummy weights generated successfully!")
-	
 	params := gpt.Parameters()
 	fmt.Printf("Total parameters: %d\n", len(params))
-	for k := range params {
-		fmt.Printf("  - %s\n", k)
+
+	jsonPath := "test_weights.json"
+	fmt.Printf("Generating dummy weights (JSON) to: %s\n", jsonPath)
+	if err := weights.SaveWeightsJSON(gpt, jsonPath); err != nil {
+		fmt.Printf("Error saving JSON weights: %v\n", err)
+		return
 	}
+	fmt.Println("JSON weights generated successfully!")
+
+	binPath := "test_weights.bin"
+	fmt.Printf("Generating dummy weights (BIN) to: %s\n", binPath)
+	if err := weights.SaveWeightsBinary(gpt, binPath); err != nil {
+		fmt.Printf("Error saving binary weights: %v\n", err)
+		return
+	}
+	fmt.Println("Binary weights generated successfully!")
 }

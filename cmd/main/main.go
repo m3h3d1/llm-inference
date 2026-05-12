@@ -12,7 +12,8 @@ import (
 )
 
 func main() {
-	weightsPath := flag.String("weights", "", "Path to the weights JSON file")
+	weightsPath := flag.String("weights", "", "Path to the weights file")
+	format := flag.String("format", "json", "Weight format: json or bin")
 	prompt := flag.String("prompt", "The", "Input prompt for text generation")
 	maxTokens := flag.Int("max_tokens", 30, "Maximum number of tokens to generate")
 	strict := flag.Bool("strict", false, "Fail if weights are missing")
@@ -42,8 +43,14 @@ func main() {
 	}
 
 	if *weightsPath != "" {
-		fmt.Printf("Loading weights from: %s\n", *weightsPath)
-		if err := weights.LoadWeightsJSON(gpt, *weightsPath, *strict); err != nil {
+		fmt.Printf("Loading weights from: %s (format: %s)\n", *weightsPath, *format)
+		var err error
+		if *format == "bin" {
+			err = weights.LoadWeightsBinary(gpt, *weightsPath, *strict)
+		} else {
+			err = weights.LoadWeightsJSON(gpt, *weightsPath, *strict)
+		}
+		if err != nil {
 			fmt.Printf("Error loading weights: %v\n", err)
 			return
 		}
