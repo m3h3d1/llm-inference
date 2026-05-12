@@ -65,3 +65,10 @@ func (e *Embeddings) Forward(tokenIDs []int) *tensor.Tensor {
 
 	return result
 }
+
+func (e *Embeddings) Parameters() map[string]*tensor.Tensor {
+	params := make(map[string]*tensor.Tensor)
+	params["TokenEmbedding"] = e.TokenEmbedding
+	params["PositionalEmbedding"] = e.PositionalEmbedding
+	return params
+}

@@ -61,10 +61,11 @@ func (l *Linear) Forward(input *tensor.Tensor) *tensor.Tensor {
 	return result
 }
 
-func (l *Linear) Parameters() []*tensor.Tensor {
-	params := []*tensor.Tensor{l.Weight}
+func (l *Linear) Parameters() map[string]*tensor.Tensor {
+	params := make(map[string]*tensor.Tensor)
+	params["Weight"] = l.Weight
 	if l.HasBias {
-		params = append(params, l.Bias)
+		params["Bias"] = l.Bias
 	}
 	return params
 }

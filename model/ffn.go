@@ -26,3 +26,14 @@ func (ff *FeedForward) Forward(x *tensor.Tensor) *tensor.Tensor {
 	
 	return out2
 }
+
+func (ff *FeedForward) Parameters() map[string]*tensor.Tensor {
+	params := make(map[string]*tensor.Tensor)
+	for k, v := range ff.L1.Parameters() {
+		params["Linear1."+k] = v
+	}
+	for k, v := range ff.L2.Parameters() {
+		params["Linear2."+k] = v
+	}
+	return params
+}

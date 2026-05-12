@@ -134,3 +134,34 @@ func SimpleAttention(x *tensor.Tensor) *tensor.Tensor {
 	weights := llmmath.Softmax(scaledScores, -1)
 	return weights.MatMul(x)
 }
+
+func (sa *SelfAttention) Parameters() map[string]*tensor.Tensor {
+	params := make(map[string]*tensor.Tensor)
+	for k, v := range sa.Wq.Parameters() {
+		params["Wq."+k] = v
+	}
+	for k, v := range sa.Wk.Parameters() {
+		params["Wk."+k] = v
+	}
+	for k, v := range sa.Wv.Parameters() {
+		params["Wv."+k] = v
+	}
+	return params
+}
+
+func (mha *MultiHeadAttention) Parameters() map[string]*tensor.Tensor {
+	params := make(map[string]*tensor.Tensor)
+	for k, v := range mha.Wq.Parameters() {
+		params["Wq."+k] = v
+	}
+	for k, v := range mha.Wk.Parameters() {
+		params["Wk."+k] = v
+	}
+	for k, v := range mha.Wv.Parameters() {
+		params["Wv."+k] = v
+	}
+	for k, v := range mha.Wo.Parameters() {
+		params["Wo."+k] = v
+	}
+	return params
+}

@@ -53,3 +53,21 @@ func (tb *TransformerBlock) Forward(x *tensor.Tensor, mask *tensor.Tensor) *tens
 
 	return x
 }
+
+func (tb *TransformerBlock) Parameters() map[string]*tensor.Tensor {
+	params := make(map[string]*tensor.Tensor)
+	
+	params["LN1.Gamma"] = tb.LN1Gamma
+	params["LN1.Beta"] = tb.LN1Beta
+	params["LN2.Gamma"] = tb.LN2Gamma
+	params["LN2.Beta"] = tb.LN2Beta
+	
+	for k, v := range tb.Attention.Parameters() {
+		params["Attention."+k] = v
+	}
+	for k, v := range tb.FFN.Parameters() {
+		params["FFN."+k] = v
+	}
+	
+	return params
+}

@@ -74,12 +74,20 @@ func TestLinearParameters(t *testing.T) {
 		t.Errorf("Expected 2 params (weight + bias), got %d", len(params))
 	}
 
-	weightDims := params[0].Dimensions()
+	weight, ok := params["Weight"]
+	if !ok {
+		t.Errorf("Expected Weight param")
+	}
+	weightDims := weight.Dimensions()
 	if weightDims[1] != 4 || weightDims[2] != 3 {
 		t.Errorf("Expected weight shape (1, 4, 3), got %v", weightDims)
 	}
 
-	biasDims := params[1].Dimensions()
+	bias, ok := params["Bias"]
+	if !ok {
+		t.Errorf("Expected Bias param")
+	}
+	biasDims := bias.Dimensions()
 	if biasDims[2] != 4 {
 		t.Errorf("Expected bias shape (1, 1, 4), got %v", biasDims)
 	}
@@ -92,6 +100,10 @@ func TestLinearNoBias(t *testing.T) {
 
 	if len(params) != 1 {
 		t.Errorf("Expected 1 param (weight only), got %d", len(params))
+	}
+	_, ok := params["Weight"]
+	if !ok {
+		t.Errorf("Expected Weight param")
 	}
 }
 

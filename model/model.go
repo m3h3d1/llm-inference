@@ -1,6 +1,8 @@
 package model
 
 import (
+	"fmt"
+
 	"github.com/llm/config"
 	"github.com/llm/linear"
 	"github.com/llm/math"
@@ -54,4 +56,27 @@ func (m *GPTModel) Forward(tokenIDs []int) *tensor.Tensor {
 	logits := m.OutputProj.Forward(x)
 
 	return logits
+}
+
+func (m *GPTModel) Parameters() map[string]*tensor.Tensor {
+	params := make(map[string]*tensor.Tensor)
+	
+	for k, v := range m.Embeddings.Parameters() {
+		params["Embeddings."+k] = v
+	}
+	
+	for i, block := range m.Blocks {
+		for k, v := range block.Parameters() {
+			params["Blocks."+fmt.Sprintf("%d", i)+"."+k] = v
+		}
+	}
+	
+	params["FinalNorm.Gamma"] = m.FinalNormGamma
+	params["FinalNorm.Beta"] = m.FinalNormBeta
+	
+	for k, v := range m.OutputProj.Parameters() {
+		params["OutputProj."+k] = v
+	}
+	
+	return params
 }
