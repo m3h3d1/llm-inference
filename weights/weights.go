@@ -36,7 +36,7 @@ func LoadWeightsJSON(gpt *model.GPTModel, path string, strict bool) error {
 	}
 
 	params := gpt.Parameters()
-	
+
 	for key, tensorVal := range params {
 		weightData, ok := weights[key]
 		if !ok {
@@ -52,6 +52,14 @@ func LoadWeightsJSON(gpt *model.GPTModel, path string, strict bool) error {
 		}
 
 		copyDataToTensor(tensorVal, weightData.Data)
+	}
+
+	if strict {
+		for key := range weights {
+			if _, ok := params[key]; !ok {
+				return fmt.Errorf("extra key in JSON: %s", key)
+			}
+		}
 	}
 
 	return nil
@@ -217,6 +225,7 @@ func LoadWeightsBinary(gpt *model.GPTModel, path string, strict bool) error {
 	}
 
 	params := gpt.Parameters()
+	loaded := make(map[string]bool, len(params))
 
 	for i := int32(0); i < count; i++ {
 		var keyLen int32
@@ -275,6 +284,15 @@ func LoadWeightsBinary(gpt *model.GPTModel, path string, strict bool) error {
 					tensorVal.Set(b, s, e, float64(floatData[idx]))
 					idx++
 				}
+			}
+		}
+		loaded[key] = true
+	}
+
+	if strict {
+		for key := range params {
+			if !loaded[key] {
+				return fmt.Errorf("missing weight in binary: %s", key)
 			}
 		}
 	}

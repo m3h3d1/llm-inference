@@ -48,7 +48,7 @@ func TestFFN(t *testing.T) {
 
 func TestTransformerBlock(t *testing.T) {
 	dModel := 8
-	block := NewTransformerBlock(dModel)
+	block := NewTransformerBlock(dModel, 0.0)
 
 	input := tensor.NewTensor(1, 2, dModel)
 	result := block.Forward(input, nil)

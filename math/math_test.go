@@ -149,6 +149,43 @@ func TestGELUShape(t *testing.T) {
 	}
 }
 
+// TestDropoutEval verifies dropout is identity when training=false
+func TestDropoutEval(t *testing.T) {
+	input := tensor.NewTensor(1, 2, 3)
+	input.Set(0, 0, 0, 1.0)
+	input.Set(0, 0, 1, 2.0)
+	input.Set(0, 1, 0, 3.0)
+
+	result := Dropout(input, 0.5, false)
+	if result != input {
+		t.Fatal("dropout with training=false should return input unchanged")
+	}
+}
+
+// TestDropoutZeroRate verifies dropout is identity when rate=0
+func TestDropoutZeroRate(t *testing.T) {
+	input := tensor.NewTensor(1, 2, 3)
+	input.Set(0, 0, 0, 1.0)
+	input.Set(0, 0, 1, 2.0)
+	input.Set(0, 1, 0, 3.0)
+
+	result := Dropout(input, 0.0, true)
+	if result != input {
+		t.Fatal("dropout with rate=0 should return input unchanged")
+	}
+}
+
+// TestDropoutShape verifies dropout preserves tensor shape
+func TestDropoutShape(t *testing.T) {
+	input := tensor.NewTensor(2, 3, 4)
+	result := Dropout(input, 0.5, true)
+
+	dims := result.Dimensions()
+	if dims[0] != 2 || dims[1] != 3 || dims[2] != 4 {
+		t.Errorf("Expected shape (2,3,4), got %v", dims)
+	}
+}
+
 // TestLayerNormBasic verifies LayerNorm with provided gamma and beta
 func TestLayerNormBasic(t *testing.T) {
 	// Input: (1, 1, 4) with values [1, 2, 3, 4]

@@ -14,9 +14,10 @@ type TransformerBlock struct {
 	LN2Gamma  *tensor.Tensor
 	LN2Beta   *tensor.Tensor
 	dModel    int
+	DropRate  float64
 }
 
-func NewTransformerBlock(dModel int) *TransformerBlock {
+func NewTransformerBlock(dModel int, dropRate float64) *TransformerBlock {
 	lN1Gamma := tensor.NewTensor(1, 1, dModel)
 	lN1Beta := tensor.NewTensor(1, 1, dModel)
 	lN2Gamma := tensor.NewTensor(1, 1, dModel)
@@ -28,13 +29,14 @@ func NewTransformerBlock(dModel int) *TransformerBlock {
 	}
 
 	return &TransformerBlock{
-		Attention: attention.NewSelfAttention(dModel),
+		Attention: attention.NewSelfAttention(dModel, dropRate),
 		FFN:       NewFeedForward(dModel, dModel*4),
 		LN1Gamma:  lN1Gamma,
 		LN1Beta:   lN1Beta,
 		LN2Gamma:  lN2Gamma,
 		LN2Beta:   lN2Beta,
 		dModel:    dModel,
+		DropRate:  dropRate,
 	}
 }
 
@@ -44,11 +46,13 @@ func (tb *TransformerBlock) Forward(x *tensor.Tensor, mask *tensor.Tensor) *tens
 	// 1. Attention sub-layer
 	norm1 := math.LayerNorm(x, tb.LN1Gamma, tb.LN1Beta, 1e-5)
 	attnOut := tb.Attention.Forward(norm1, mask)
+	attnOut = math.Dropout(attnOut, tb.DropRate, false)
 	x = x.Add(attnOut) // Residual connection
 
 	// 2. MLP sub-layer
 	norm2 := math.LayerNorm(x, tb.LN2Gamma, tb.LN2Beta, 1e-5)
 	mlpOut := tb.FFN.Forward(norm2)
+	mlpOut = math.Dropout(mlpOut, tb.DropRate, false)
 	x = x.Add(mlpOut) // Residual connection
 
 	return x

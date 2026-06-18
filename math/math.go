@@ -2,6 +2,7 @@ package math
 
 import (
 	"math"
+	"math/rand"
 
 	"github.com/llm/tensor"
 )
@@ -123,6 +124,24 @@ func LayerNorm(t *tensor.Tensor, gamma, beta *tensor.Tensor, eps float64) *tenso
 		}
 	}
 
+	return result
+}
+
+// Dropout applies inverted dropout. When training=false or rate=0, returns input unchanged.
+// When training=true, zeroes out a fraction of elements and scales the rest by 1/(1-rate).
+func Dropout(x *tensor.Tensor, rate float64, training bool) *tensor.Tensor {
+	if rate == 0 || !training {
+		return x
+	}
+	scale := 1.0 / (1.0 - rate)
+	result := tensor.NewTensor(x.Batch(), x.Seq(), x.Embed())
+	for i, v := range x.Data {
+		if rand.Float64() < rate {
+			result.Data[i] = 0
+		} else {
+			result.Data[i] = v * scale
+		}
+	}
 	return result
 }
 

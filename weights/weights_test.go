@@ -217,6 +217,44 @@ func TestBinaryInvalidVersion(t *testing.T) {
 	}
 }
 
+func TestJSONStrictExtraKey(t *testing.T) {
+	cfgSmall := testConfig()
+	cfgSmall.NLayers = 1
+
+	cfgLarge := testConfig()
+
+	large := model.NewGPTModel(cfgLarge)
+	path := filepath.Join(t.TempDir(), "weights_extra.json")
+	if err := SaveWeightsJSON(large, path); err != nil {
+		t.Fatalf("SaveWeightsJSON: %v", err)
+	}
+
+	small := model.NewGPTModel(cfgSmall)
+	err := LoadWeightsJSON(small, path, true)
+	if err == nil {
+		t.Fatal("expected error for extra keys in strict mode")
+	}
+}
+
+func TestBinaryStrictMissingKey(t *testing.T) {
+	cfgSmall := testConfig()
+	cfgSmall.NLayers = 1
+
+	cfgLarge := testConfig()
+
+	small := model.NewGPTModel(cfgSmall)
+	path := filepath.Join(t.TempDir(), "weights_partial.bin")
+	if err := SaveWeightsBinary(small, path); err != nil {
+		t.Fatalf("SaveWeightsBinary: %v", err)
+	}
+
+	large := model.NewGPTModel(cfgLarge)
+	err := LoadWeightsBinary(large, path, true)
+	if err == nil {
+		t.Fatal("expected error for missing keys in strict mode")
+	}
+}
+
 func TestBinaryStrictExtraKey(t *testing.T) {
 	cfgSmall := testConfig()
 	cfgSmall.NLayers = 1

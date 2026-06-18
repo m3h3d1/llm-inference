@@ -21,7 +21,7 @@ type GPTModel struct {
 func NewGPTModel(cfg config.Config) *GPTModel {
 	blocks := make([]*TransformerBlock, cfg.NLayers)
 	for i := 0; i < cfg.NLayers; i++ {
-		blocks[i] = NewTransformerBlock(cfg.EmbDim)
+		blocks[i] = NewTransformerBlock(cfg.EmbDim, cfg.DropRate)
 	}
 
 	finalNormGamma := tensor.NewTensor(1, 1, cfg.EmbDim)
@@ -44,15 +44,18 @@ func (m *GPTModel) Forward(tokenIDs []int) *tensor.Tensor {
 	// 1. Embedding
 	x := m.Embeddings.Forward(tokenIDs)
 
-	// 2. Transformer Blocks
+	// 2. Dropout on embeddings (training only)
+	x = math.Dropout(x, m.Cfg.DropRate, false)
+
+	// 3. Transformer Blocks
 	for _, block := range m.Blocks {
 		x = block.Forward(x, nil) // Using nil mask for simple forward
 	}
 
-	// 3. Final LayerNorm
+	// 4. Final LayerNorm
 	x = math.LayerNorm(x, m.FinalNormGamma, m.FinalNormBeta, 1e-5)
 
-	// 4. Output Projection
+	// 5. Output Projection
 	logits := m.OutputProj.Forward(x)
 
 	return logits

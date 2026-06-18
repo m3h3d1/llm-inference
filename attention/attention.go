@@ -85,14 +85,16 @@ func (mha *MultiHeadAttention) extractHead(t *tensor.Tensor, headIdx int) *tenso
 type SelfAttention struct {
 	Wq, Wk, Wv *linear.Linear
 	d_k        int
+	DropRate   float64
 }
 
-func NewSelfAttention(d_model int) *SelfAttention {
+func NewSelfAttention(d_model int, dropRate float64) *SelfAttention {
 	return &SelfAttention{
-		Wq:   linear.NewLinear(d_model, d_model, false),
-		Wk:   linear.NewLinear(d_model, d_model, false),
-		Wv:   linear.NewLinear(d_model, d_model, false),
-		d_k:  d_model,
+		Wq:       linear.NewLinear(d_model, d_model, false),
+		Wk:       linear.NewLinear(d_model, d_model, false),
+		Wv:       linear.NewLinear(d_model, d_model, false),
+		d_k:      d_model,
+		DropRate: dropRate,
 	}
 }
 
@@ -117,7 +119,10 @@ func (sa *SelfAttention) Forward(x *tensor.Tensor, mask *tensor.Tensor) *tensor.
 	// 5. Softmax to get attention weights
 	weights := llmmath.Softmax(scaledScores, -1) // (batch, seq, seq)
 
-	// 6. Multiply weights by V
+	// 6. Apply dropout to attention weights (training only)
+	weights = llmmath.Dropout(weights, sa.DropRate, false)
+
+	// 7. Multiply weights by V
 	// weights: (batch, seq, seq), V: (batch, seq, embed)
 	result := weights.MatMul(v) // (batch, seq, embed)
 
