@@ -12,6 +12,7 @@ import (
 )
 
 func main() {
+	profile := flag.String("profile", "debug", "Model profile: debug (small, fast) or full (GPT-2 Small 124M)")
 	weightsPath := flag.String("weights", "", "Path to the weights file")
 	format := flag.String("format", "json", "Weight format: json or bin")
 	prompt := flag.String("prompt", "The", "Input prompt for text generation")
@@ -20,14 +21,23 @@ func main() {
 
 	flag.Parse()
 
-	cfg := config.Config{
-		VocabSize:  1000,
-		ContextLen: 32,
-		EmbDim:     32,
-		NHeads:     4,
-		NLayers:    2,
-		DropRate:   0.0,
-		QKVBias:    false,
+	var cfg config.Config
+	switch *profile {
+	case "full":
+		cfg = config.DefaultConfig
+	case "debug":
+		cfg = config.Config{
+			VocabSize:  1000,
+			ContextLen: 32,
+			EmbDim:     32,
+			NHeads:     4,
+			NLayers:    2,
+			DropRate:   0.0,
+			QKVBias:    false,
+		}
+	default:
+		fmt.Printf("Unknown profile: %s (use debug or full)\n", *profile)
+		return
 	}
 	gpt := model.NewGPTModel(cfg)
 	var tok *tokenizer.Tokenizer
