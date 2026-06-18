@@ -84,6 +84,7 @@ func (mha *MultiHeadAttention) extractHead(t *tensor.Tensor, headIdx int) *tenso
 // SelfAttention handles the core attention logic
 type SelfAttention struct {
 	Wq, Wk, Wv *linear.Linear
+	Wo         *linear.Linear
 	d_k        int
 	DropRate   float64
 }
@@ -93,6 +94,7 @@ func NewSelfAttention(d_model int, dropRate float64) *SelfAttention {
 		Wq:       linear.NewLinear(d_model, d_model, false),
 		Wk:       linear.NewLinear(d_model, d_model, false),
 		Wv:       linear.NewLinear(d_model, d_model, false),
+		Wo:       linear.NewLinear(d_model, d_model, false),
 		d_k:      d_model,
 		DropRate: dropRate,
 	}
@@ -126,7 +128,8 @@ func (sa *SelfAttention) Forward(x *tensor.Tensor, mask *tensor.Tensor) *tensor.
 	// weights: (batch, seq, seq), V: (batch, seq, embed)
 	result := weights.MatMul(v) // (batch, seq, embed)
 
-	return result
+	// 8. Output projection
+	return sa.Wo.Forward(result)
 }
 
 // SimpleAttention remains for backward compatibility or simple tests
@@ -150,6 +153,9 @@ func (sa *SelfAttention) Parameters() map[string]*tensor.Tensor {
 	}
 	for k, v := range sa.Wv.Parameters() {
 		params["Wv."+k] = v
+	}
+	for k, v := range sa.Wo.Parameters() {
+		params["Wo."+k] = v
 	}
 	return params
 }
