@@ -9,10 +9,12 @@ import (
 	"github.com/llm/tensor"
 )
 
-// KVCache holds the cached Key and Value tensors for each transformer layer.
+// KVCache holds the cached Key and Value tensors for each transformer layer
+// and tracks the total number of tokens processed (for position offset).
 type KVCache struct {
 	Keys   []*tensor.Tensor
 	Values []*tensor.Tensor
+	SeqLen int
 }
 
 type GPTModel struct {
@@ -48,7 +50,7 @@ func NewGPTModel(cfg config.Config) *GPTModel {
 
 func (m *GPTModel) Forward(tokenIDs []int) *tensor.Tensor {
 	// 1. Embedding
-	x := m.Embeddings.Forward(tokenIDs)
+	x := m.Embeddings.Forward(tokenIDs, 0)
 
 	// 2. Dropout on embeddings (training only)
 	x = math.Dropout(x, m.Cfg.DropRate, false)
@@ -71,12 +73,17 @@ func (m *GPTModel) Forward(tokenIDs []int) *tensor.Tensor {
 // a KV cache. Pass pastCache=nil for the first call (prefill); subsequent calls
 // pass the cache returned by the previous call (decode).
 func (m *GPTModel) ForwardWithCache(tokenIDs []int, pastCache *KVCache) (*tensor.Tensor, *KVCache) {
-	x := m.Embeddings.Forward(tokenIDs)
+	startPos := 0
+	if pastCache != nil {
+		startPos = pastCache.SeqLen
+	}
+	x := m.Embeddings.Forward(tokenIDs, startPos)
 	x = math.Dropout(x, m.Cfg.DropRate, false)
 
 	newCache := &KVCache{
 		Keys:   make([]*tensor.Tensor, len(m.Blocks)),
 		Values: make([]*tensor.Tensor, len(m.Blocks)),
+		SeqLen: startPos + len(tokenIDs),
 	}
 
 	for i, block := range m.Blocks {

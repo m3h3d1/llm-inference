@@ -41,7 +41,7 @@ func NewEmbeddings(vocabSize, contextLen, embDim int) *Embeddings {
 	}
 }
 
-func (e *Embeddings) Forward(tokenIDs []int) *tensor.Tensor {
+func (e *Embeddings) Forward(tokenIDs []int, startPos int) *tensor.Tensor {
 	batch := 1 // Simplified for now
 	seq := len(tokenIDs)
 	
@@ -57,7 +57,7 @@ func (e *Embeddings) Forward(tokenIDs []int) *tensor.Tensor {
 			
 			// 2. Add positional embedding
 			// posEmb is (contextLen, 1, embDim)
-			posVal := e.PositionalEmbedding.At(s, 0, d)
+			posVal := e.PositionalEmbedding.At(startPos+s, 0, d)
 			
 			result.Set(0, s, d, val+posVal)
 		}

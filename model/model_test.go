@@ -16,7 +16,7 @@ func TestEmbeddings(t *testing.T) {
 	emb := NewEmbeddings(vocabSize, contextLen, embDim)
 
 	tokenIDs := []int{1, 2, 3}
-	result := emb.Forward(tokenIDs)
+	result := emb.Forward(tokenIDs, 0)
 
 	if result == nil {
 		t.Fatal("Result should not be nil")
