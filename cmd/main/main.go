@@ -19,6 +19,9 @@ func main() {
 	maxTokens := flag.Int("max_tokens", 30, "Maximum number of tokens to generate")
 	strict := flag.Bool("strict", false, "Fail if weights are missing")
 	repPenalty := flag.Float64("repetition_penalty", 1.0, "Repetition penalty (>1.0 penalizes repeated tokens)")
+	temperature := flag.Float64("temperature", 1.0, "Sampling temperature (0 = greedy, 1.0 = default)")
+	topP := flag.Float64("top_p", 1.0, "Nucleus sampling threshold (1.0 = disabled)")
+	seed := flag.Int64("seed", 0, "Random seed (0 = time-based)")
 
 	flag.Parse()
 
@@ -36,12 +39,19 @@ func main() {
 			DropRate:          0.0,
 			QKVBias:           false,
 			RepetitionPenalty: 1.0,
+			Temperature:       1.0,
+			TopP:              1.0,
+			Seed:              0,
 		}
 	default:
 		fmt.Printf("Unknown profile: %s (use debug or full)\n", *profile)
 		return
 	}
 	cfg.RepetitionPenalty = *repPenalty
+	cfg.Temperature = *temperature
+	cfg.TopP = *topP
+	cfg.Seed = *seed
+
 	gpt := model.NewGPTModel(cfg)
 	var tok *tokenizer.Tokenizer
 	if cfg.VocabSize < 10000 {

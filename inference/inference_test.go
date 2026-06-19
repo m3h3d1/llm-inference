@@ -13,15 +13,14 @@ func TestGenerate(t *testing.T) {
 	cfg.NLayers = 2
 	cfg.EmbDim = 16
 	cfg.VocabSize = 100
+	cfg.Seed = 42
 
-	// Use a simple mock for the test
 	m := model.NewGPTModel(cfg)
 	tok := tokenizer.NewMock()
 
-	prompt := "h" // "h" maps to ID 0 in our mock
+	prompt := "h"
 	generated := Generate(cfg, m, tok, prompt, 5)
 
-	// Verify it's not empty
 	if len(generated) == 0 {
 		t.Fatal("Generated string is empty")
 	}

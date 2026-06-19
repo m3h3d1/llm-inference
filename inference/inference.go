@@ -1,6 +1,9 @@
 package inference
 
 import (
+	"math/rand"
+	"time"
+
 	"github.com/llm/config"
 	"github.com/llm/model"
 	"github.com/llm/tokenizer"
@@ -14,7 +17,13 @@ func Generate(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.Tokenizer, 
 		return ""
 	}
 
-	// Prefill: process the entire prompt and build the initial KV cache
+	var rng *rand.Rand
+	if cfg.Seed != 0 {
+		rng = rand.New(rand.NewSource(cfg.Seed))
+	} else {
+		rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	}
+
 	logits, cache := gpt.ForwardWithCache(ids, nil)
 
 	for i := 0; i < maxNewTokens; i++ {
@@ -28,14 +37,21 @@ func Generate(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.Tokenizer, 
 			lastTokenLogits = ApplyRepetitionPenalty(lastTokenLogits, ids, cfg.RepetitionPenalty)
 		}
 
-		nextTokenID := argmax(lastTokenLogits)
+		var nextTokenID int
+		if cfg.Temperature == 0 {
+			nextTokenID = argmax(lastTokenLogits)
+		} else {
+			logits := ApplyTemperature(lastTokenLogits, cfg.Temperature)
+			logits = ApplyTopP(logits, cfg.TopP)
+			probs := Softmax(logits)
+			nextTokenID = Sample(probs, rng)
+		}
+
 		if nextTokenID == eosTokenID {
 			break
 		}
 
 		ids = append(ids, nextTokenID)
-
-		// Decode: process only the new token with the cached past
 		logits, cache = gpt.ForwardWithCache([]int{nextTokenID}, cache)
 	}
 
@@ -45,13 +61,13 @@ func Generate(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.Tokenizer, 
 func argmax(scores []float64) int {
 	maxScore := scores[0]
 	maxIndex := 0
-	
+
 	for i := 1; i < len(scores); i++ {
 		if scores[i] > maxScore {
 			maxScore = scores[i]
 			maxIndex = i
 		}
 	}
-	
+
 	return maxIndex
 }

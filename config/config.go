@@ -9,6 +9,9 @@ type Config struct {
 	DropRate          float64
 	QKVBias           bool
 	RepetitionPenalty float64
+	Temperature       float64
+	TopP              float64
+	Seed              int64
 }
 
 var DefaultConfig = Config{
@@ -20,4 +23,7 @@ var DefaultConfig = Config{
 	DropRate:          0.1,
 	QKVBias:           false,
 	RepetitionPenalty: 1.0,
+	Temperature:       1.0,
+	TopP:              1.0,
+	Seed:              0,
 }
