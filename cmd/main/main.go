@@ -18,6 +18,7 @@ func main() {
 	prompt := flag.String("prompt", "The", "Input prompt for text generation")
 	maxTokens := flag.Int("max_tokens", 30, "Maximum number of tokens to generate")
 	strict := flag.Bool("strict", false, "Fail if weights are missing")
+	repPenalty := flag.Float64("repetition_penalty", 1.0, "Repetition penalty (>1.0 penalizes repeated tokens)")
 
 	flag.Parse()
 
@@ -27,18 +28,20 @@ func main() {
 		cfg = config.DefaultConfig
 	case "debug":
 		cfg = config.Config{
-			VocabSize:  1000,
-			ContextLen: 32,
-			EmbDim:     32,
-			NHeads:     4,
-			NLayers:    2,
-			DropRate:   0.0,
-			QKVBias:    false,
+			VocabSize:         1000,
+			ContextLen:        32,
+			EmbDim:            32,
+			NHeads:            4,
+			NLayers:           2,
+			DropRate:          0.0,
+			QKVBias:           false,
+			RepetitionPenalty: 1.0,
 		}
 	default:
 		fmt.Printf("Unknown profile: %s (use debug or full)\n", *profile)
 		return
 	}
+	cfg.RepetitionPenalty = *repPenalty
 	gpt := model.NewGPTModel(cfg)
 	var tok *tokenizer.Tokenizer
 	if cfg.VocabSize < 10000 {

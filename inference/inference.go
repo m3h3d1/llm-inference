@@ -24,6 +24,10 @@ func Generate(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.Tokenizer, 
 			lastTokenLogits[v] = logits.At(0, lastPos, v)
 		}
 
+		if cfg.RepetitionPenalty > 1.0 {
+			lastTokenLogits = ApplyRepetitionPenalty(lastTokenLogits, ids, cfg.RepetitionPenalty)
+		}
+
 		nextTokenID := argmax(lastTokenLogits)
 		if nextTokenID == eosTokenID {
 			break
