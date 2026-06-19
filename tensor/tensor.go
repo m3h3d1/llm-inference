@@ -100,6 +100,42 @@ func (t *Tensor) Scale(factor float64) *Tensor {
 	return result
 }
 
+// ConcatSeq concatenates tensors along the seq dimension (axis 1).
+// All tensors must share the same batch and embed dimensions.
+func ConcatSeq(tensors []*Tensor) *Tensor {
+	if len(tensors) == 0 {
+		return nil
+	}
+
+	dims := tensors[0].Dimensions()
+	batch, _, embed := dims[0], dims[1], dims[2]
+
+	totalSeq := 0
+	for _, t := range tensors {
+		tDims := t.Dimensions()
+		if tDims[0] != batch || tDims[2] != embed {
+			return nil
+		}
+		totalSeq += tDims[1]
+	}
+
+	result := NewTensor(batch, totalSeq, embed)
+
+	for b := 0; b < batch; b++ {
+		currentSeq := 0
+		for _, t := range tensors {
+			tSeq := t.Dimensions()[1]
+			for s := 0; s < tSeq; s++ {
+				for e := 0; e < embed; e++ {
+					result.Set(b, currentSeq+s, e, t.At(b, s, e))
+				}
+			}
+			currentSeq += tSeq
+		}
+	}
+	return result
+}
+
 // Add performs element-wise addition with broadcasting
 func (t *Tensor) Add(other *Tensor) *Tensor {
 	dims1 := t.Dimensions()

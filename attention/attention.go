@@ -132,6 +132,35 @@ func (sa *SelfAttention) Forward(x *tensor.Tensor, mask *tensor.Tensor) *tensor.
 	return sa.Wo.Forward(result)
 }
 
+// ForwardWithCache computes attention with optional past K,V cache.
+// During decode (pastK != nil), no causal mask is needed since all
+// cached positions precede the current token by construction.
+// Returns (output, newK, newV) where newK/V are the combined past + current.
+func (sa *SelfAttention) ForwardWithCache(x *tensor.Tensor, mask *tensor.Tensor, pastK, pastV *tensor.Tensor) (*tensor.Tensor, *tensor.Tensor, *tensor.Tensor) {
+	q := sa.Wq.Forward(x)
+	k := sa.Wk.Forward(x)
+	v := sa.Wv.Forward(x)
+
+	if pastK != nil {
+		k = tensor.ConcatSeq([]*tensor.Tensor{pastK, k})
+		v = tensor.ConcatSeq([]*tensor.Tensor{pastV, v})
+	}
+
+	scores := q.MatMul(k.Transpose())
+	scaledScores := scores.Scale(1.0 / math.Sqrt(float64(sa.d_k)))
+
+	if mask != nil {
+		scaledScores = scaledScores.Add(mask)
+	}
+
+	weights := llmmath.Softmax(scaledScores, -1)
+	weights = llmmath.Dropout(weights, sa.DropRate, false)
+	result := weights.MatMul(v)
+	output := sa.Wo.Forward(result)
+
+	return output, k, v
+}
+
 // SimpleAttention remains for backward compatibility or simple tests
 func SimpleAttention(x *tensor.Tensor) *tensor.Tensor {
 	embed := x.Dimensions()[2]

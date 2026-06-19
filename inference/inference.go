@@ -6,30 +6,35 @@ import (
 	"github.com/llm/tokenizer"
 )
 
+const eosTokenID = 50256
+
 func Generate(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.Tokenizer, prompt string, maxNewTokens int) string {
-	// 1. Tokenize the prompt
 	ids := tok.Encode(prompt)
-	
-	// 2. Generation Loop
+	if len(ids) == 0 {
+		return ""
+	}
+
+	// Prefill: process the entire prompt and build the initial KV cache
+	logits, cache := gpt.ForwardWithCache(ids, nil)
+
 	for i := 0; i < maxNewTokens; i++ {
-		// 3. Forward Pass
-		logits := gpt.Forward(ids)
-		
-		// 4. Get logits for the last token
-		seqLen := len(ids)
+		lastPos := logits.Seq() - 1
 		lastTokenLogits := make([]float64, cfg.VocabSize)
 		for v := 0; v < cfg.VocabSize; v++ {
-			lastTokenLogits[v] = logits.At(0, seqLen-1, v)
+			lastTokenLogits[v] = logits.At(0, lastPos, v)
 		}
-		
-		// 5. Greedy Search: Find argmax
+
 		nextTokenID := argmax(lastTokenLogits)
-		
-		// 6. Append to sequence
+		if nextTokenID == eosTokenID {
+			break
+		}
+
 		ids = append(ids, nextTokenID)
+
+		// Decode: process only the new token with the cached past
+		logits, cache = gpt.ForwardWithCache([]int{nextTokenID}, cache)
 	}
-	
-	// 7. Decode and return
+
 	return tok.Decode(ids)
 }
 

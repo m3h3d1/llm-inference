@@ -9,6 +9,12 @@ import (
 	"github.com/llm/tensor"
 )
 
+// KVCache holds the cached Key and Value tensors for each transformer layer.
+type KVCache struct {
+	Keys   []*tensor.Tensor
+	Values []*tensor.Tensor
+}
+
 type GPTModel struct {
 	Cfg            config.Config
 	Embeddings     *Embeddings
@@ -59,6 +65,33 @@ func (m *GPTModel) Forward(tokenIDs []int) *tensor.Tensor {
 	logits := m.OutputProj.Forward(x)
 
 	return logits
+}
+
+// ForwardWithCache processes tokenIDs through the model, accepting and returning
+// a KV cache. Pass pastCache=nil for the first call (prefill); subsequent calls
+// pass the cache returned by the previous call (decode).
+func (m *GPTModel) ForwardWithCache(tokenIDs []int, pastCache *KVCache) (*tensor.Tensor, *KVCache) {
+	x := m.Embeddings.Forward(tokenIDs)
+	x = math.Dropout(x, m.Cfg.DropRate, false)
+
+	newCache := &KVCache{
+		Keys:   make([]*tensor.Tensor, len(m.Blocks)),
+		Values: make([]*tensor.Tensor, len(m.Blocks)),
+	}
+
+	for i, block := range m.Blocks {
+		var pastK, pastV *tensor.Tensor
+		if pastCache != nil {
+			pastK = pastCache.Keys[i]
+			pastV = pastCache.Values[i]
+		}
+		x, newCache.Keys[i], newCache.Values[i] = block.ForwardWithCache(x, nil, pastK, pastV)
+	}
+
+	x = math.LayerNorm(x, m.FinalNormGamma, m.FinalNormBeta, 1e-5)
+	logits := m.OutputProj.Forward(x)
+
+	return logits, newCache
 }
 
 func (m *GPTModel) Parameters() map[string]*tensor.Tensor {

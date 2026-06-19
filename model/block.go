@@ -58,6 +58,24 @@ func (tb *TransformerBlock) Forward(x *tensor.Tensor, mask *tensor.Tensor) *tens
 	return x
 }
 
+func (tb *TransformerBlock) ForwardWithCache(x *tensor.Tensor, mask *tensor.Tensor, pastK, pastV *tensor.Tensor) (*tensor.Tensor, *tensor.Tensor, *tensor.Tensor) {
+	// Pre-LN architecture with KV cache
+
+	// 1. Attention sub-layer
+	norm1 := math.LayerNorm(x, tb.LN1Gamma, tb.LN1Beta, 1e-5)
+	attnOut, newK, newV := tb.Attention.ForwardWithCache(norm1, mask, pastK, pastV)
+	attnOut = math.Dropout(attnOut, tb.DropRate, false)
+	x = x.Add(attnOut) // Residual connection
+
+	// 2. MLP sub-layer
+	norm2 := math.LayerNorm(x, tb.LN2Gamma, tb.LN2Beta, 1e-5)
+	mlpOut := tb.FFN.Forward(norm2)
+	mlpOut = math.Dropout(mlpOut, tb.DropRate, false)
+	x = x.Add(mlpOut) // Residual connection
+
+	return x, newK, newV
+}
+
 func (tb *TransformerBlock) Parameters() map[string]*tensor.Tensor {
 	params := make(map[string]*tensor.Tensor)
 	
