@@ -29,6 +29,8 @@ func main() {
 	switch *profile {
 	case "full":
 		cfg = config.DefaultConfig
+	case "medium":
+		cfg = config.GPT2Medium
 	case "debug":
 		cfg = config.Config{
 			VocabSize:         1000,
@@ -44,7 +46,7 @@ func main() {
 			Seed:              0,
 		}
 	default:
-		fmt.Printf("Unknown profile: %s (use debug or full)\n", *profile)
+		fmt.Printf("Unknown profile: %s (use debug, full, or medium)\n", *profile)
 		return
 	}
 	cfg.RepetitionPenalty = *repPenalty

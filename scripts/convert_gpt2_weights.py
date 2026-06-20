@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 """Convert HuggingFace GPT-2 weights to LLMs-from-scratch-go binary format."""
 
+import argparse
 import struct
 import numpy as np
 from transformers import GPT2Model
 
 
 def convert():
-    print("Loading GPT-2 from HuggingFace...")
-    hf = GPT2Model.from_pretrained("gpt2")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", default="gpt2", choices=["gpt2", "gpt2-medium"])
+    parser.add_argument("--output", default=None, help="Output filename (derived from model name if omitted)")
+    args = parser.parse_args()
+
+    print(f"Loading {args.model} from HuggingFace...")
+    hf = GPT2Model.from_pretrained(args.model)
     state = hf.state_dict()
     n_layer = hf.config.n_layer
     print(f"Loaded GPT-2 ({n_layer} layers)")
@@ -90,7 +96,12 @@ def convert():
 
     # Write binary
     keys.sort(key=lambda x: x[0])
-    out_path = "gpt2_124M.bin"
+    if args.output:
+        out_path = args.output
+    else:
+        size_labels = {"gpt2": "124M", "gpt2-medium": "medium"}
+        label = size_labels.get(args.model, args.model.replace("gpt2-", ""))
+        out_path = f"gpt2_{label}.bin"
 
     with open(out_path, "wb") as f:
         f.write(struct.pack("<I", 0x4C4C4D00))

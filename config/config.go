@@ -27,3 +27,17 @@ var DefaultConfig = Config{
 	TopP:              1.0,
 	Seed:              0,
 }
+
+var GPT2Medium = Config{
+	VocabSize:         50257,
+	ContextLen:        1024,
+	EmbDim:            1024,
+	NHeads:            16,
+	NLayers:           24,
+	DropRate:          0.1,
+	QKVBias:           true,
+	RepetitionPenalty: 1.0,
+	Temperature:       1.0,
+	TopP:              1.0,
+	Seed:              0,
+}
