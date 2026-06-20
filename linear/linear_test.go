@@ -59,9 +59,14 @@ func TestLinearForwardWithBias(t *testing.T) {
 		t.Errorf("Expected outFeatures=%d, got %d", outFeatures, dims[2])
 	}
 
-	val := result.At(0, 0, 0)
-	if val < 1.0 {
-		t.Errorf("Expected bias to be added, got %f", val)
+	// Weights initialized as W[o][i] = float64(o)*0.01, Bias = 1.0
+	// Input [1.0, 2.0]:
+	//   output[0] = 0.00*1 + 0.00*2 + 1.0 = 1.0
+	//   output[1] = 0.01*1 + 0.01*2 + 1.0 = 1.03
+	got0 := result.At(0, 0, 0)
+	got1 := result.At(0, 0, 1)
+	if got0 != 1.0 || got1 != 1.03 {
+		t.Errorf("Expected [1.0, 1.03], got [%f, %f]", got0, got1)
 	}
 }
 

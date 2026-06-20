@@ -86,6 +86,59 @@ func TestGPTModel(t *testing.T) {
 	}
 }
 
+func TestForwardWithCache(t *testing.T) {
+	cfg := config.DefaultConfig
+	cfg.NLayers = 2
+	cfg.NHeads = 4
+	cfg.EmbDim = 16
+	cfg.VocabSize = 100
+
+	model := NewGPTModel(cfg)
+
+	// Prefill: 3 tokens
+	tokenIDs := []int{1, 2, 3}
+	logits1, cache := model.ForwardWithCache(tokenIDs, nil)
+	if logits1 == nil || cache == nil {
+		t.Fatal("ForwardWithCache (prefill) returned nil")
+	}
+	if cache.SeqLen != 3 {
+		t.Errorf("Expected cache.SeqLen=3, got %d", cache.SeqLen)
+	}
+	if len(cache.Keys) != cfg.NLayers || len(cache.Values) != cfg.NLayers {
+		t.Errorf("Expected %d cache entries, got Keys=%d Values=%d", cfg.NLayers, len(cache.Keys), len(cache.Values))
+	}
+	dims := logits1.Dimensions()
+	if dims[0] != 1 || dims[1] != 3 || dims[2] != cfg.VocabSize {
+		t.Errorf("Prefill logits shape (1,3,%d), got %v", cfg.VocabSize, dims)
+	}
+
+	// Decode: 1 new token with cache
+	tokenIDs2 := []int{4}
+	logits2, cache2 := model.ForwardWithCache(tokenIDs2, cache)
+	if logits2 == nil || cache2 == nil {
+		t.Fatal("ForwardWithCache (decode) returned nil")
+	}
+	if cache2.SeqLen != 4 {
+		t.Errorf("Expected cache.SeqLen=4, got %d", cache2.SeqLen)
+	}
+	dims2 := logits2.Dimensions()
+	if dims2[0] != 1 || dims2[1] != 1 || dims2[2] != cfg.VocabSize {
+		t.Errorf("Decode logits shape (1,1,%d), got %v", cfg.VocabSize, dims2)
+	}
+
+	// Forward without cache for the full 4-token sequence should match
+	// the prefill logits for the first 3 positions
+	fullLogits := model.Forward([]int{1, 2, 3, 4})
+	for s := 0; s < 3; s++ {
+		for v := 0; v < cfg.VocabSize; v++ {
+			if logits1.At(0, s, v) != fullLogits.At(0, s, v) {
+				t.Errorf("Prefill logit mismatch at seq=%d, vocab=%d: %f vs %f", s, v, logits1.At(0, s, v), fullLogits.At(0, s, v))
+				return
+			}
+		}
+	}
+}
+
 func TestIntegrationWithTokenizer(t *testing.T) {
 	// Only run if we have assets (skip if running in isolation)
 	cfg := config.DefaultConfig

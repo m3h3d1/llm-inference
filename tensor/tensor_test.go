@@ -191,6 +191,45 @@ func TestFlattenAndIdx(t *testing.T) {
 	}
 }
 
+// TestConcatSeq verifies concatenation along the seq dimension
+func TestConcatSeq(t *testing.T) {
+	// Case 1: Basic concat
+	A := NewTensor(1, 2, 3)
+	A.Set(0, 0, 0, 1); A.Set(0, 0, 1, 2); A.Set(0, 0, 2, 3)
+	A.Set(0, 1, 0, 4); A.Set(0, 1, 1, 5); A.Set(0, 1, 2, 6)
+	B := NewTensor(1, 2, 3)
+	B.Set(0, 0, 0, 7); B.Set(0, 0, 1, 8); B.Set(0, 0, 2, 9)
+	B.Set(0, 1, 0, 10); B.Set(0, 1, 1, 11); B.Set(0, 1, 2, 12)
+
+	C := ConcatSeq([]*Tensor{A, B})
+	if C == nil {
+		t.Fatal("ConcatSeq returned nil")
+	}
+	dims := C.Dimensions()
+	if dims[0] != 1 || dims[1] != 4 || dims[2] != 3 {
+		t.Errorf("Expected shape (1,4,3), got %v", dims)
+	}
+	if C.At(0, 0, 0) != 1 || C.At(0, 3, 2) != 12 {
+		t.Errorf("ConcatSeq values wrong: got %v", C.Data)
+	}
+
+	// Case 2: Shape mismatch returns nil
+	C2 := ConcatSeq([]*Tensor{NewTensor(1, 2, 3), NewTensor(2, 2, 3)})
+	if C2 != nil {
+		t.Error("Expected nil for batch mismatch")
+	}
+
+	C3 := ConcatSeq([]*Tensor{NewTensor(1, 2, 3), NewTensor(1, 2, 4)})
+	if C3 != nil {
+		t.Error("Expected nil for embed mismatch")
+	}
+
+	// Case 3: Empty input returns nil
+	if ConcatSeq(nil) != nil {
+		t.Error("Expected nil for nil input")
+	}
+}
+
 // TestScale verifies scalar multiplication
 func TestScale(t *testing.T) {
 	A := NewTensor(1, 1, 3)
