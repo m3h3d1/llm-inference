@@ -13,8 +13,8 @@ type FeedForward struct {
 
 func NewFeedForward(dModel, dFF int) *FeedForward {
 	return &FeedForward{
-		L1: linear.NewLinear(dModel, dFF, false),
-		L2: linear.NewLinear(dFF, dModel, false),
+		L1: linear.NewLinear(dModel, dFF, true),
+		L2: linear.NewLinear(dFF, dModel, true),
 	}
 }
 

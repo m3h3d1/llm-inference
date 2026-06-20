@@ -37,7 +37,7 @@ func main() {
 			NHeads:            4,
 			NLayers:           2,
 			DropRate:          0.0,
-			QKVBias:           false,
+			QKVBias:           true,
 			RepetitionPenalty: 1.0,
 			Temperature:       1.0,
 			TopP:              1.0,

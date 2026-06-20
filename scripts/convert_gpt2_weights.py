@@ -48,6 +48,13 @@ def convert():
         wv = c_attn[:, 2 * d_model :]
         wq, wk, wv = [x.T for x in (wq, wk, wv)]
 
+        # Biases
+        c_attn_bias = state[f"{hp_layer}attn.c_attn.bias"].numpy()
+        bq, bk, bv = np.split(c_attn_bias, 3)
+        add(f"Blocks.{i}.Attention.Wq.Bias", bq.reshape(1, 1, -1))
+        add(f"Blocks.{i}.Attention.Wk.Bias", bk.reshape(1, 1, -1))
+        add(f"Blocks.{i}.Attention.Wv.Bias", bv.reshape(1, 1, -1))
+
         add(f"Blocks.{i}.Attention.Wq.Weight", wq)
         add(f"Blocks.{i}.Attention.Wk.Weight", wk)
         add(f"Blocks.{i}.Attention.Wv.Weight", wv)
@@ -55,6 +62,7 @@ def convert():
         # Output projection Wo
         wo = state[f"{hp_layer}attn.c_proj.weight"].numpy().T
         add(f"Blocks.{i}.Attention.Wo.Weight", wo)
+        add(f"Blocks.{i}.Attention.Wo.Bias", state[f"{hp_layer}attn.c_proj.bias"].numpy().reshape(1, 1, -1))
 
         # LayerNorm 1
         add(f"Blocks.{i}.LN1.Gamma", state[f"{hp_layer}ln_1.weight"].numpy())
@@ -63,9 +71,11 @@ def convert():
         # FFN
         fc = state[f"{hp_layer}mlp.c_fc.weight"].numpy().T
         add(f"Blocks.{i}.FFN.Linear1.Weight", fc)
+        add(f"Blocks.{i}.FFN.Linear1.Bias", state[f"{hp_layer}mlp.c_fc.bias"].numpy().reshape(1, 1, -1))
 
         proj = state[f"{hp_layer}mlp.c_proj.weight"].numpy().T
         add(f"Blocks.{i}.FFN.Linear2.Weight", proj)
+        add(f"Blocks.{i}.FFN.Linear2.Bias", state[f"{hp_layer}mlp.c_proj.bias"].numpy().reshape(1, 1, -1))
 
         # LayerNorm 2
         add(f"Blocks.{i}.LN2.Gamma", state[f"{hp_layer}ln_2.weight"].numpy())
@@ -75,8 +85,8 @@ def convert():
     add("FinalNorm.Gamma", state[f"{hp}ln_f.weight"].numpy())
     add("FinalNorm.Beta", state[f"{hp}ln_f.bias"].numpy())
 
-    # Output projection (tied with token embeddings in GPT-2)
-    add("OutputProj.Weight", state[f"{hp}wte.weight"].numpy())
+    # Output projection (tied with token embeddings in GPT-2 — handled in Go model)
+    # add("OutputProj.Weight", state[f"{hp}wte.weight"].numpy())
 
     # Write binary
     keys.sort(key=lambda x: x[0])

@@ -21,7 +21,7 @@ var DefaultConfig = Config{
 	NHeads:            12,
 	NLayers:           12,
 	DropRate:          0.1,
-	QKVBias:           false,
+	QKVBias:           true,
 	RepetitionPenalty: 1.0,
 	Temperature:       1.0,
 	TopP:              1.0,

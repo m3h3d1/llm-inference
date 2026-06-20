@@ -91,10 +91,10 @@ type SelfAttention struct {
 
 func NewSelfAttention(d_model int, dropRate float64) *SelfAttention {
 	return &SelfAttention{
-		Wq:       linear.NewLinear(d_model, d_model, false),
-		Wk:       linear.NewLinear(d_model, d_model, false),
-		Wv:       linear.NewLinear(d_model, d_model, false),
-		Wo:       linear.NewLinear(d_model, d_model, false),
+		Wq:       linear.NewLinear(d_model, d_model, true),
+		Wk:       linear.NewLinear(d_model, d_model, true),
+		Wv:       linear.NewLinear(d_model, d_model, true),
+		Wo:       linear.NewLinear(d_model, d_model, true),
 		d_k:      d_model,
 		DropRate: dropRate,
 	}

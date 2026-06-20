@@ -38,7 +38,7 @@ func NewGPTModel(cfg config.Config) *GPTModel {
 		finalNormGamma.Set(0, 0, i, 1.0)
 	}
 
-	return &GPTModel{
+	m := &GPTModel{
 		Cfg:            cfg,
 		Embeddings:     NewEmbeddings(cfg.VocabSize, cfg.ContextLen, cfg.EmbDim),
 		Blocks:         blocks,
@@ -46,6 +46,10 @@ func NewGPTModel(cfg config.Config) *GPTModel {
 		FinalNormBeta:  finalNormBeta,
 		OutputProj:     linear.NewLinear(cfg.EmbDim, cfg.VocabSize, false),
 	}
+	// Weight tying: share token embedding with output projection.
+	// Matches OpenAI's GPT-2 architecture (logits = h @ wte^T).
+	m.OutputProj.Weight = m.Embeddings.TokenEmbedding
+	return m
 }
 
 func (m *GPTModel) Forward(tokenIDs []int) *tensor.Tensor {
@@ -118,6 +122,9 @@ func (m *GPTModel) Parameters() map[string]*tensor.Tensor {
 	params["FinalNorm.Beta"] = m.FinalNormBeta
 	
 	for k, v := range m.OutputProj.Parameters() {
+		if k == "Weight" {
+			continue // shared with Embeddings.TokenEmbedding
+		}
 		params["OutputProj."+k] = v
 	}
 	
