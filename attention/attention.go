@@ -13,49 +13,75 @@ type SelfAttention struct {
 	Wq, Wk, Wv *linear.Linear
 	Wo         *linear.Linear
 	d_k        int
+	n_heads    int
 	DropRate   float64
 }
 
-func NewSelfAttention(d_model int, dropRate float64) *SelfAttention {
+func NewSelfAttention(d_model int, n_heads int, dropRate float64) *SelfAttention {
+	if d_model%n_heads != 0 {
+		panic("d_model must be divisible by n_heads")
+	}
 	return &SelfAttention{
 		Wq:       linear.NewLinear(d_model, d_model, true),
 		Wk:       linear.NewLinear(d_model, d_model, true),
 		Wv:       linear.NewLinear(d_model, d_model, true),
 		Wo:       linear.NewLinear(d_model, d_model, true),
-		d_k:      d_model,
+		d_k:      d_model / n_heads,
+		n_heads:  n_heads,
 		DropRate: dropRate,
 	}
 }
 
+func (sa *SelfAttention) extractHead(t *tensor.Tensor, start int) *tensor.Tensor {
+	batch, seq := t.Batch(), t.Seq()
+	result := tensor.NewTensor(batch, seq, sa.d_k)
+	for b := 0; b < batch; b++ {
+		for s := 0; s < seq; s++ {
+			for e := 0; e < sa.d_k; e++ {
+				result.Set(b, s, e, t.At(b, s, start+e))
+			}
+		}
+	}
+	return result
+}
+
 func (sa *SelfAttention) Forward(x *tensor.Tensor, mask *tensor.Tensor) *tensor.Tensor {
-	// 1. Project Q, K, V
-	q := sa.Wq.Forward(x) // (batch, seq, embed)
-	k := sa.Wk.Forward(x) // (batch, seq, embed)
-	v := sa.Wv.Forward(x) // (batch, seq, embed)
+	q := sa.Wq.Forward(x)
+	k := sa.Wk.Forward(x)
+	v := sa.Wv.Forward(x)
 
-	// 2. Compute scores: Q * K^T
-	// Q: (batch, seq, embed), K^T: (batch, embed, seq)
-	scores := q.MatMul(k.Transpose()) // (batch, seq, seq)
+	batch, seq, dModel := x.Batch(), x.Seq(), x.Embed()
+	scale := 1.0 / math.Sqrt(float64(sa.d_k))
 
-	// 3. Scale scores by 1/sqrt(dk)
-	scaledScores := scores.Scale(1.0 / math.Sqrt(float64(sa.d_k)))
+	headOutputs := make([]*tensor.Tensor, sa.n_heads)
+	for h := 0; h < sa.n_heads; h++ {
+		start := h * sa.d_k
+		qHead := sa.extractHead(q, start)
+		kHead := sa.extractHead(k, start)
+		vHead := sa.extractHead(v, start)
 
-	// 4. Apply Causal Mask if provided
-	if mask != nil {
-		scaledScores = scaledScores.Add(mask)
+		scores := qHead.MatMul(kHead.Transpose())
+		scaledScores := scores.Scale(scale)
+		if mask != nil {
+			scaledScores = scaledScores.Add(mask)
+		}
+		weights := llmmath.Softmax(scaledScores, -1)
+		weights = llmmath.Dropout(weights, sa.DropRate, false)
+		headOutputs[h] = weights.MatMul(vHead)
 	}
 
-	// 5. Softmax to get attention weights
-	weights := llmmath.Softmax(scaledScores, -1) // (batch, seq, seq)
-
-	// 6. Apply dropout to attention weights (training only)
-	weights = llmmath.Dropout(weights, sa.DropRate, false)
-
-	// 7. Multiply weights by V
-	// weights: (batch, seq, seq), V: (batch, seq, embed)
-	result := weights.MatMul(v) // (batch, seq, embed)
-
-	// 8. Output projection
+	result := tensor.NewTensor(batch, seq, dModel)
+	for h := 0; h < sa.n_heads; h++ {
+		start := h * sa.d_k
+		headOut := headOutputs[h]
+		for b := 0; b < batch; b++ {
+			for s := 0; s < seq; s++ {
+				for e := 0; e < sa.d_k; e++ {
+					result.Set(b, s, start+e, headOut.At(b, s, e))
+				}
+			}
+		}
+	}
 	return sa.Wo.Forward(result)
 }
 
@@ -73,16 +99,38 @@ func (sa *SelfAttention) ForwardWithCache(x *tensor.Tensor, mask *tensor.Tensor,
 		v = tensor.ConcatSeq([]*tensor.Tensor{pastV, v})
 	}
 
-	scores := q.MatMul(k.Transpose())
-	scaledScores := scores.Scale(1.0 / math.Sqrt(float64(sa.d_k)))
+	batch, seq, dModel := x.Batch(), x.Seq(), x.Embed()
+	scale := 1.0 / math.Sqrt(float64(sa.d_k))
 
-	if mask != nil {
-		scaledScores = scaledScores.Add(mask)
+	headOutputs := make([]*tensor.Tensor, sa.n_heads)
+	for h := 0; h < sa.n_heads; h++ {
+		start := h * sa.d_k
+		qHead := sa.extractHead(q, start)
+		kHead := sa.extractHead(k, start)
+		vHead := sa.extractHead(v, start)
+
+		scores := qHead.MatMul(kHead.Transpose())
+		scaledScores := scores.Scale(scale)
+		if mask != nil {
+			scaledScores = scaledScores.Add(mask)
+		}
+		weights := llmmath.Softmax(scaledScores, -1)
+		weights = llmmath.Dropout(weights, sa.DropRate, false)
+		headOutputs[h] = weights.MatMul(vHead)
 	}
 
-	weights := llmmath.Softmax(scaledScores, -1)
-	weights = llmmath.Dropout(weights, sa.DropRate, false)
-	result := weights.MatMul(v)
+	result := tensor.NewTensor(batch, seq, dModel)
+	for h := 0; h < sa.n_heads; h++ {
+		start := h * sa.d_k
+		headOut := headOutputs[h]
+		for b := 0; b < batch; b++ {
+			for s := 0; s < seq; s++ {
+				for e := 0; e < sa.d_k; e++ {
+					result.Set(b, s, start+e, headOut.At(b, s, e))
+				}
+			}
+		}
+	}
 	output := sa.Wo.Forward(result)
 
 	return output, k, v

@@ -48,7 +48,7 @@ func TestFFN(t *testing.T) {
 
 func TestTransformerBlock(t *testing.T) {
 	dModel := 8
-	block := NewTransformerBlock(dModel, 0.0)
+	block := NewTransformerBlock(dModel, 2, 0.0)
 
 	input := tensor.NewTensor(1, 2, dModel)
 	result := block.Forward(input, nil)
@@ -67,6 +67,7 @@ func TestGPTModel(t *testing.T) {
 	cfg := config.DefaultConfig
 	// Use smaller config for testing
 	cfg.NLayers = 2
+	cfg.NHeads = 4
 	cfg.EmbDim = 16
 	cfg.VocabSize = 100
 
@@ -89,6 +90,7 @@ func TestIntegrationWithTokenizer(t *testing.T) {
 	// Only run if we have assets (skip if running in isolation)
 	cfg := config.DefaultConfig
 	cfg.NLayers = 2
+	cfg.NHeads = 4
 	cfg.EmbDim = 16
 
 	tok := tokenizer.NewMock()

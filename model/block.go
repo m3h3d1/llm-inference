@@ -16,7 +16,7 @@ type TransformerBlock struct {
 	DropRate  float64
 }
 
-func NewTransformerBlock(dModel int, dropRate float64) *TransformerBlock {
+func NewTransformerBlock(dModel int, nHeads int, dropRate float64) *TransformerBlock {
 	lN1Gamma := tensor.NewTensor(1, 1, dModel)
 	lN1Beta := tensor.NewTensor(1, 1, dModel)
 	lN2Gamma := tensor.NewTensor(1, 1, dModel)
@@ -28,7 +28,7 @@ func NewTransformerBlock(dModel int, dropRate float64) *TransformerBlock {
 	}
 
 	return &TransformerBlock{
-		Attention: attention.NewSelfAttention(dModel, dropRate),
+		Attention: attention.NewSelfAttention(dModel, nHeads, dropRate),
 		FFN:       NewFeedForward(dModel, dModel*4),
 		LN1Gamma:  lN1Gamma,
 		LN1Beta:   lN1Beta,

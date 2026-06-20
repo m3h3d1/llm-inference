@@ -11,6 +11,7 @@ import (
 func TestGenerate(t *testing.T) {
 	cfg := config.DefaultConfig
 	cfg.NLayers = 2
+	cfg.NHeads = 4
 	cfg.EmbDim = 16
 	cfg.VocabSize = 100
 	cfg.Seed = 42

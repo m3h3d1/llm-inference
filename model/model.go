@@ -29,7 +29,7 @@ type GPTModel struct {
 func NewGPTModel(cfg config.Config) *GPTModel {
 	blocks := make([]*TransformerBlock, cfg.NLayers)
 	for i := 0; i < cfg.NLayers; i++ {
-		blocks[i] = NewTransformerBlock(cfg.EmbDim, cfg.DropRate)
+		blocks[i] = NewTransformerBlock(cfg.EmbDim, cfg.NHeads, cfg.DropRate)
 	}
 
 	finalNormGamma := tensor.NewTensor(1, 1, cfg.EmbDim)
@@ -59,9 +59,10 @@ func (m *GPTModel) Forward(tokenIDs []int) *tensor.Tensor {
 	// 2. Dropout on embeddings (training only)
 	x = math.Dropout(x, m.Cfg.DropRate, false)
 
-	// 3. Transformer Blocks
+	// 3. Transformer Blocks with causal mask
+	mask := math.CreateCausalMask(len(tokenIDs))
 	for _, block := range m.Blocks {
-		x = block.Forward(x, nil) // Using nil mask for simple forward
+		x = block.Forward(x, mask)
 	}
 
 	// 4. Final LayerNorm
@@ -90,13 +91,19 @@ func (m *GPTModel) ForwardWithCache(tokenIDs []int, pastCache *KVCache) (*tensor
 		SeqLen: startPos + len(tokenIDs),
 	}
 
+	var mask *tensor.Tensor
+	if pastCache == nil {
+		// Prefill: apply causal mask to prevent attending to future tokens
+		mask = math.CreateCausalMask(len(tokenIDs))
+	}
+
 	for i, block := range m.Blocks {
 		var pastK, pastV *tensor.Tensor
 		if pastCache != nil {
 			pastK = pastCache.Keys[i]
 			pastV = pastCache.Values[i]
 		}
-		x, newCache.Keys[i], newCache.Values[i] = block.ForwardWithCache(x, nil, pastK, pastV)
+		x, newCache.Keys[i], newCache.Values[i] = block.ForwardWithCache(x, mask, pastK, pastV)
 	}
 
 	x = math.LayerNorm(x, m.FinalNormGamma, m.FinalNormBeta, 1e-5)

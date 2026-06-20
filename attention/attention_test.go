@@ -10,7 +10,7 @@ import (
 // TestSelfAttentionV2 verifies attention with learnable projections
 func TestSelfAttentionV2(t *testing.T) {
 	inFeatures := 4
-	sa := NewSelfAttention(inFeatures, 0.0)
+	sa := NewSelfAttention(inFeatures, 2, 0.0)
 
 	input := tensor.NewTensor(1, 2, inFeatures)
 	input.Set(0, 0, 0, 1.0)
@@ -31,7 +31,7 @@ func TestSelfAttentionV2(t *testing.T) {
 // TestCausalAttention verifies that tokens cannot attend to future tokens
 func TestCausalAttention(t *testing.T) {
 	inFeatures := 4
-	sa := NewSelfAttention(inFeatures, 0.0)
+	sa := NewSelfAttention(inFeatures, 2, 0.0)
 
 	input := tensor.NewTensor(1, 3, inFeatures) // 3 tokens
 	for i := 0; i < 3; i++ {
