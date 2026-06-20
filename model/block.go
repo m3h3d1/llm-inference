@@ -13,7 +13,6 @@ type TransformerBlock struct {
 	LN1Beta   *tensor.Tensor
 	LN2Gamma  *tensor.Tensor
 	LN2Beta   *tensor.Tensor
-	dModel    int
 	DropRate  float64
 }
 
@@ -35,7 +34,6 @@ func NewTransformerBlock(dModel int, dropRate float64) *TransformerBlock {
 		LN1Beta:   lN1Beta,
 		LN2Gamma:  lN2Gamma,
 		LN2Beta:   lN2Beta,
-		dModel:    dModel,
 		DropRate:  dropRate,
 	}
 }

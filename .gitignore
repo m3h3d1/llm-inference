@@ -39,3 +39,4 @@ logs/
 *.md
 
 test_weights.json
+main

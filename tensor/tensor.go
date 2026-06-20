@@ -72,10 +72,6 @@ func (t *Tensor) AtIdx(idx int) float64 {
 	return t.Data[idx]
 }
 
-// SetIdx sets the value at flattened index
-func (t *Tensor) SetIdx(idx int, value float64) {
-	t.Data[idx] = value
-}
 
 // Zeros creates a tensor filled with zeros
 func Zeros(batch, seq, embed int) *Tensor {
@@ -172,40 +168,6 @@ func (t *Tensor) Add(other *Tensor) *Tensor {
 				if dims2[2] == 1 { e2 = 0 }
 
 				result.Set(b, s, e, t.At(b1, s1, e1)+other.At(b2, s2, e2))
-			}
-		}
-	}
-	return result
-}
-
-func Concat(tensors []*Tensor) *Tensor {
-	if len(tensors) == 0 {
-		return nil
-	}
-	
-	dims := tensors[0].Dimensions()
-	batch, seq, _ := dims[0], dims[1], dims[2]
-	
-	totalEmbed := 0
-	for _, t := range tensors {
-		tDims := t.Dimensions()
-		if tDims[0] != batch || tDims[1] != seq {
-			return nil // Incompatible batch or seq
-		}
-		totalEmbed += tDims[2]
-	}
-	
-	result := NewTensor(batch, seq, totalEmbed)
-	
-	for b := 0; b < batch; b++ {
-		for s := 0; s < seq; s++ {
-			currentEmbed := 0
-			for _, t := range tensors {
-				tEmbed := t.Dimensions()[2]
-				for e := 0; e < tEmbed; e++ {
-					result.Set(b, s, currentEmbed+e, t.At(b, s, e))
-				}
-				currentEmbed += tEmbed
 			}
 		}
 	}
