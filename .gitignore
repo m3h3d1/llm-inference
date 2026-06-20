@@ -40,3 +40,5 @@ logs/
 
 test_weights.json
 main
+
+!README.md
