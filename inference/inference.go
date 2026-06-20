@@ -11,7 +11,7 @@ import (
 
 const eosTokenID = 50256
 
-func Generate(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.Tokenizer, prompt string, maxNewTokens int) string {
+func GenerateStreaming(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.Tokenizer, prompt string, maxNewTokens int, onToken func(string)) string {
 	ids := tok.Encode(prompt)
 	if len(ids) == 0 {
 		return ""
@@ -25,6 +25,7 @@ func Generate(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.Tokenizer, 
 	}
 
 	logits, cache := gpt.ForwardWithCache(ids, nil)
+	prevDecoded := tok.Decode(ids)
 
 	for i := 0; i < maxNewTokens; i++ {
 		lastPos := logits.Seq() - 1
@@ -53,9 +54,20 @@ func Generate(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.Tokenizer, 
 
 		ids = append(ids, nextTokenID)
 		logits, cache = gpt.ForwardWithCache([]int{nextTokenID}, cache)
+
+		decoded := tok.Decode(ids)
+		delta := decoded[len(prevDecoded):]
+		if onToken != nil {
+			onToken(delta)
+		}
+		prevDecoded = decoded
 	}
 
 	return tok.Decode(ids)
+}
+
+func Generate(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.Tokenizer, prompt string, maxNewTokens int) string {
+	return GenerateStreaming(cfg, gpt, tok, prompt, maxNewTokens, nil)
 }
 
 func argmax(scores []float64) int {

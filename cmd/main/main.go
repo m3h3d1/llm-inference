@@ -83,6 +83,9 @@ func main() {
 	}
 
 	fmt.Printf("Generating text with prompt: %s\n", *prompt)
-	output := inference.Generate(cfg, gpt, tok, *prompt, *maxTokens)
-	fmt.Printf("Generated text: %s\n", output)
+	fmt.Print("Generated text: ")
+	inference.GenerateStreaming(cfg, gpt, tok, *prompt, *maxTokens, func(text string) {
+		fmt.Print(text)
+	})
+	fmt.Println()
 }
