@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	profile := flag.String("profile", "debug", "Model profile: debug (small, fast) or full (GPT-2 Small 124M)")
+	profile := flag.String("profile", "debug", "Model profile: debug (mock, no weights), small (GPT-2 Small 124M), or medium (GPT-2 Medium 355M)")
 	weightsPath := flag.String("weights", "", "Path to the weights file")
 	format := flag.String("format", "json", "Weight format: json or bin")
 	prompt := flag.String("prompt", "The", "Input prompt for text generation")
@@ -27,7 +27,7 @@ func main() {
 
 	var cfg config.Config
 	switch *profile {
-	case "full":
+	case "small":
 		cfg = config.DefaultConfig
 	case "medium":
 		cfg = config.GPT2Medium
@@ -46,7 +46,7 @@ func main() {
 			Seed:              0,
 		}
 	default:
-		fmt.Printf("Unknown profile: %s (use debug, full, or medium)\n", *profile)
+		fmt.Printf("Unknown profile: %s (use debug, small, or medium)\n", *profile)
 		return
 	}
 	cfg.RepetitionPenalty = *repPenalty
