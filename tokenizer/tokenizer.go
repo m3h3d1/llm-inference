@@ -13,6 +13,7 @@ type Tokenizer struct {
 	Merges          [][2]string
 	bytesToUnicode  map[byte]rune
 	unicodeToBytes  map[rune]byte
+	AddedTokens     []string
 }
 
 func NewMock() *Tokenizer {
@@ -81,7 +82,7 @@ func NewFromFiles(vocabPath, mergesPath string) (*Tokenizer, error) {
 	for b := 0; b < 256; b++ {
 		byteVal := byte(b)
 		var r rune
-		if (b >= 33 && b <= 126) || b == 10 || b == 13 {
+		if b >= 33 && b <= 126 {
 			r = rune(b)
 		} else {
 			r = rune(b + 256)
@@ -94,47 +95,91 @@ func NewFromFiles(vocabPath, mergesPath string) (*Tokenizer, error) {
 	return tok, scanner.Err()
 }
 
-func (t *Tokenizer) Encode(text string) []int {
-	bytes := []byte(text)
-	tokens := make([]string, len(bytes))
-	for i, b := range bytes {
-		if t.bytesToUnicode != nil {
-			tokens[i] = string(t.bytesToUnicode[b])
-		} else {
-			tokens[i] = string(b)
+func (t *Tokenizer) preTokenize(text string) []string {
+	var parts []string
+	remaining := text
+	for remaining != "" {
+		bestPos := len(remaining)
+		bestTok := ""
+		for _, tok := range t.AddedTokens {
+			if pos := strings.Index(remaining, tok); pos >= 0 && pos < bestPos {
+				bestPos = pos
+				bestTok = tok
+			}
 		}
+		if bestTok == "" {
+			parts = append(parts, remaining)
+			break
+		}
+		if bestPos > 0 {
+			parts = append(parts, remaining[:bestPos])
+		}
+		parts = append(parts, bestTok)
+		remaining = remaining[bestPos+len(bestTok):]
 	}
+	return parts
+}
 
-	for iterations := 0; iterations < 10000; iterations++ {
-		merged := false
-		for _, merge := range t.Merges {
-			for i := 0; i < len(tokens)-1; i++ {
-				if tokens[i] == merge[0] && tokens[i+1] == merge[1] {
-					newToken := merge[0] + merge[1]
-					tokens[i] = newToken
-					copy(tokens[i+1:], tokens[i+2:])
-					tokens = tokens[:len(tokens)-1]
-					merged = true
+func (t *Tokenizer) Encode(text string) []int {
+	segments := t.preTokenize(text)
+
+	encodeSegment := func(seg string, ids *[]int) {
+		bytes := []byte(seg)
+		tokens := make([]string, len(bytes))
+		for i, b := range bytes {
+			if t.bytesToUnicode != nil {
+				tokens[i] = string(t.bytesToUnicode[b])
+			} else {
+				tokens[i] = string(b)
+			}
+		}
+
+		for iterations := 0; iterations < 10000; iterations++ {
+			merged := false
+			for _, merge := range t.Merges {
+				for i := 0; i < len(tokens)-1; i++ {
+					if tokens[i] == merge[0] && tokens[i+1] == merge[1] {
+						newToken := merge[0] + merge[1]
+						tokens[i] = newToken
+						copy(tokens[i+1:], tokens[i+2:])
+						tokens = tokens[:len(tokens)-1]
+						merged = true
+						break
+					}
+				}
+				if merged {
 					break
 				}
 			}
-			if merged {
+			if !merged {
 				break
 			}
 		}
-		if !merged {
-			break
+
+		for _, token := range tokens {
+			id, ok := t.Vocab[token]
+			if !ok {
+				id = 0
+			}
+			*ids = append(*ids, id)
 		}
 	}
 
-	ids := make([]int, len(tokens))
-	for i, token := range tokens {
-		id, ok := t.Vocab[token]
-		if !ok {
-			id = 0
+	var ids []int
+	for _, seg := range segments {
+		isAdded := false
+		for _, at := range t.AddedTokens {
+			if seg == at {
+				ids = append(ids, t.Vocab[at])
+				isAdded = true
+				break
+			}
 		}
-		ids[i] = id
+		if !isAdded {
+			encodeSegment(seg, &ids)
+		}
 	}
+
 	return ids
 }
 

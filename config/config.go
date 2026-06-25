@@ -12,6 +12,15 @@ type Config struct {
 	Temperature       float64
 	TopP              float64
 	Seed              int64
+
+	// Llama architecture fields
+	NKVHeads          int
+	DFF               int
+	RopeDim           int
+	RopeTheta         float64
+	RmsNormEps        float64
+	UseTiedEmbeddings bool
+	EOSTokenID        int
 }
 
 var DefaultConfig = Config{
@@ -26,6 +35,7 @@ var DefaultConfig = Config{
 	Temperature:       1.0,
 	TopP:              1.0,
 	Seed:              0,
+	EOSTokenID:        50256,
 }
 
 var GPT2Medium = Config{
@@ -39,5 +49,68 @@ var GPT2Medium = Config{
 	RepetitionPenalty: 1.0,
 	Temperature:       1.0,
 	TopP:              1.0,
+	Seed:              0,
+	EOSTokenID:        50256,
+}
+
+var SmolLM2_135M = Config{
+	VocabSize:         49152,
+	ContextLen:        8192,
+	EmbDim:            576,
+	NHeads:            9,
+	NKVHeads:          3,
+	NLayers:           30,
+	DFF:               1536,
+	DropRate:          0.0,
+	RopeDim:           64,
+	RopeTheta:         100000.0,
+	RmsNormEps:        1e-5,
+	QKVBias:           false,
+	UseTiedEmbeddings: true,
+	Temperature:       1.0,
+	TopP:              1.0,
+	RepetitionPenalty: 1.0,
+	Seed:              0,
+	EOSTokenID:        49152,
+}
+
+var SmolLM2_360M = Config{
+	VocabSize:         49152,
+	ContextLen:        8192,
+	EmbDim:            960,
+	NHeads:            15,
+	NKVHeads:          5,
+	NLayers:           32,
+	DFF:               2560,
+	DropRate:          0.0,
+	RopeDim:           64,
+	RopeTheta:         100000.0,
+	RmsNormEps:        1e-5,
+	QKVBias:           false,
+	UseTiedEmbeddings: true,
+	Temperature:       1.0,
+	TopP:              1.0,
+	RepetitionPenalty: 1.0,
+	Seed:              0,
+	EOSTokenID:        49152,
+}
+
+var SmolLM2_1_7B = Config{
+	VocabSize:         49152,
+	ContextLen:        8192,
+	EmbDim:            2048,
+	NHeads:            32,
+	NKVHeads:          32,
+	NLayers:           24,
+	DFF:               8192,
+	DropRate:          0.0,
+	RopeDim:           64,
+	RopeTheta:         130000.0,
+	RmsNormEps:        1e-5,
+	QKVBias:           false,
+	UseTiedEmbeddings: true,
+	Temperature:       1.0,
+	TopP:              1.0,
+	RepetitionPenalty: 1.0,
 	Seed:              0,
 }

@@ -40,5 +40,6 @@ logs/
 
 test_weights.json
 main
+/models
 
 !README.md

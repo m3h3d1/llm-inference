@@ -6,12 +6,16 @@ import (
 
 	"github.com/llm/config"
 	"github.com/llm/model"
+	"github.com/llm/tensor"
 	"github.com/llm/tokenizer"
 )
 
-const eosTokenID = 50256
+type Model interface {
+	Forward(tokenIDs []int) *tensor.Tensor
+	ForwardWithCache(tokenIDs []int, pastCache *model.KVCache) (*tensor.Tensor, *model.KVCache)
+}
 
-func GenerateStreaming(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.Tokenizer, prompt string, maxNewTokens int, onToken func(string)) string {
+func GenerateStreaming(cfg config.Config, m Model, tok *tokenizer.Tokenizer, prompt string, maxNewTokens int, onToken func(string)) string {
 	ids := tok.Encode(prompt)
 	if len(ids) == 0 {
 		return ""
@@ -24,7 +28,7 @@ func GenerateStreaming(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.To
 		rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 	}
 
-	logits, cache := gpt.ForwardWithCache(ids, nil)
+	logits, cache := m.ForwardWithCache(ids, nil)
 	prevDecoded := tok.Decode(ids)
 
 	for i := 0; i < maxNewTokens; i++ {
@@ -48,12 +52,12 @@ func GenerateStreaming(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.To
 			nextTokenID = Sample(probs, rng)
 		}
 
-		if nextTokenID == eosTokenID {
+		if cfg.EOSTokenID != 0 && nextTokenID == cfg.EOSTokenID {
 			break
 		}
 
 		ids = append(ids, nextTokenID)
-		logits, cache = gpt.ForwardWithCache([]int{nextTokenID}, cache)
+		logits, cache = m.ForwardWithCache([]int{nextTokenID}, cache)
 
 		decoded := tok.Decode(ids)
 		delta := decoded[len(prevDecoded):]
@@ -66,8 +70,8 @@ func GenerateStreaming(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.To
 	return tok.Decode(ids)
 }
 
-func Generate(cfg config.Config, gpt *model.GPTModel, tok *tokenizer.Tokenizer, prompt string, maxNewTokens int) string {
-	return GenerateStreaming(cfg, gpt, tok, prompt, maxNewTokens, nil)
+func Generate(cfg config.Config, m Model, tok *tokenizer.Tokenizer, prompt string, maxNewTokens int) string {
+	return GenerateStreaming(cfg, m, tok, prompt, maxNewTokens, nil)
 }
 
 func argmax(scores []float64) int {
