@@ -1,6 +1,7 @@
 package weights
 
 import (
+	"encoding/binary"
 	"math"
 	"os"
 	"path/filepath"
@@ -271,5 +272,93 @@ func TestBinaryStrictExtraKey(t *testing.T) {
 	err := LoadWeightsBinary(small, path, true)
 	if err == nil {
 		t.Fatal("expected error for extra keys in strict mode")
+	}
+}
+
+func TestBinaryNonStrictMissingKey(t *testing.T) {
+	cfgSmall := testConfig()
+	cfgSmall.NLayers = 1
+
+	cfgLarge := testConfig()
+
+	small := gpt2.NewModel(cfgSmall)
+	path := filepath.Join(t.TempDir(), "weights_partial.bin")
+	if err := SaveWeightsBinary(small, path); err != nil {
+		t.Fatalf("SaveWeightsBinary: %v", err)
+	}
+
+	large := gpt2.NewModel(cfgLarge)
+	if err := LoadWeightsBinary(large, path, false); err != nil {
+		t.Fatalf("non-strict load should not error: %v", err)
+	}
+}
+
+func TestJSONNonStrictExtraKey(t *testing.T) {
+	cfgSmall := testConfig()
+	cfgSmall.NLayers = 1
+
+	cfgLarge := testConfig()
+
+	large := gpt2.NewModel(cfgLarge)
+	path := filepath.Join(t.TempDir(), "weights_extra.json")
+	if err := SaveWeightsJSON(large, path); err != nil {
+		t.Fatalf("SaveWeightsJSON: %v", err)
+	}
+
+	small := gpt2.NewModel(cfgSmall)
+	err := LoadWeightsJSON(small, path, false)
+	if err != nil {
+		t.Fatalf("non-strict load with extra keys should not error: %v", err)
+	}
+}
+
+func TestValidateShapeMismatch(t *testing.T) {
+	tv := tensor.NewTensor(1, 2, 3)
+	if validateShape(tv, []int{1, 2}) {
+		t.Error("expected false for dim count mismatch (3 vs 2)")
+	}
+	if validateShape(tv, []int{1, 2, 4}) {
+		t.Error("expected false for dim value mismatch")
+	}
+	if !validateShape(tv, []int{1, 2, 3}) {
+		t.Error("expected true for matching shape")
+	}
+}
+
+func TestBinaryShapeMismatch(t *testing.T) {
+	cfg := testConfig()
+	m := gpt2.NewModel(cfg)
+
+	// Save to binary, then corrupt a shape dimension
+	path := filepath.Join(t.TempDir(), "shape_mismatch.bin")
+	if err := SaveWeightsBinary(m, path); err != nil {
+		t.Fatalf("SaveWeightsBinary: %v", err)
+	}
+
+	// Read binary, change the first dim of the first tensor
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read file: %v", err)
+	}
+
+	// Magic(4) + Version(4) + Count(4) = 12 bytes header
+	// First tensor: key_len(4) + key_bytes + dim_count(4) + dims
+	// Read key_len
+	keyLen := int32(binary.LittleEndian.Uint32(data[12:]))
+	// Skip to dim_count: 12 + 4 + keyLen
+	dimCountOffset := 12 + 4 + int(keyLen)
+	// First dim starts at dimCountOffset + 4
+	firstDimOffset := dimCountOffset + 4
+	// Corrupt the first dimension value
+	writeUint32LE(data, firstDimOffset, uint32(999))
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatalf("write corrupted file: %v", err)
+	}
+
+	m2 := gpt2.NewModel(cfg)
+	err = LoadWeightsBinary(m2, path, true)
+	if err == nil {
+		t.Fatal("expected error for shape mismatch, got nil")
 	}
 }

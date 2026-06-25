@@ -1,12 +1,13 @@
 package linear
 
 import (
+	"math"
 	"testing"
 
 	"github.com/llm/tensor"
 )
 
-// TestLinearForwardShape verifies Linear produces correct output shape
+// TestLinearForwardShape verifies Linear produces correct output shape with no NaN
 // Input: (batch=1, seq=2, inFeatures=3)
 // Expected: (batch=1, seq=2, outFeatures=4)
 func TestLinearForwardShape(t *testing.T) {
@@ -34,6 +35,12 @@ func TestLinearForwardShape(t *testing.T) {
 	}
 	if dims[2] != outFeatures {
 		t.Errorf("Expected outFeatures=%d, got %d", outFeatures, dims[2])
+	}
+	for _, v := range result.Data {
+		if math.IsNaN(v) {
+			t.Error("NaN in linear forward output")
+			break
+		}
 	}
 }
 
@@ -134,6 +141,12 @@ func TestLinearBatchGreaterThan1(t *testing.T) {
 	if dims[2] != outFeatures {
 		t.Errorf("Expected outFeatures=%d, got %d", outFeatures, dims[2])
 	}
+	for _, v := range result.Data {
+		if math.IsNaN(v) {
+			t.Error("NaN in linear batch forward output")
+			break
+		}
+	}
 }
 
 // TestLinearSeqGreaterThan1 verifies with seq > 1
@@ -149,5 +162,11 @@ func TestLinearSeqGreaterThan1(t *testing.T) {
 	dims := result.Dimensions()
 	if dims[1] != 3 {
 		t.Errorf("Expected seq=3, got %d", dims[1])
+	}
+	for _, v := range result.Data {
+		if math.IsNaN(v) {
+			t.Error("NaN in linear seq forward output")
+			break
+		}
 	}
 }

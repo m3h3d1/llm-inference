@@ -197,6 +197,99 @@ func (m *mockParamSetter) SetParameter(path string, data *tensor.Tensor) {
 	m.params[path] = data
 }
 
+func TestLoadConfigFromGGUF_TypeMismatch(t *testing.T) {
+	buf := make([]byte, 256)
+	offset := 0
+
+	writeUint32LE(buf, offset, gguf.Magic); offset += 4
+	writeUint32LE(buf, offset, 3); offset += 4
+	writeUint64LE(buf, offset, 0); offset += 8
+	writeUint64LE(buf, offset, 2); offset += 8
+
+	offset = writeMetadataString(buf, offset, "general.architecture", "llama")
+	// rope.freq_base should be a float, but we write uint32
+	offset = writeMetadataUint32(buf, offset, "llama.rope.freq_base", 100000)
+
+	path := writeGGUF(t, buf[:offset])
+	f, err := gguf.Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	_, err = LoadConfigFromGGUF(f)
+	if err == nil {
+		t.Fatal("expected error for type mismatch, got nil")
+	}
+}
+
+func TestLoadConfigFromGGUF_CustomEOS(t *testing.T) {
+	buf := make([]byte, 2048)
+	offset := 0
+
+	writeUint32LE(buf, offset, gguf.Magic); offset += 4
+	writeUint32LE(buf, offset, 3); offset += 4
+	writeUint64LE(buf, offset, 0); offset += 8
+	writeUint64LE(buf, offset, 11); offset += 8
+
+	offset = writeMetadataString(buf, offset, "general.architecture", "llama")
+	offset = writeMetadataUint32(buf, offset, "llama.embedding_length", 576)
+	offset = writeMetadataUint32(buf, offset, "llama.block_count", 30)
+	offset = writeMetadataUint32(buf, offset, "llama.attention.head_count", 9)
+	offset = writeMetadataUint32(buf, offset, "llama.attention.head_count_kv", 3)
+	offset = writeMetadataUint32(buf, offset, "llama.feed_forward_length", 1536)
+	offset = writeMetadataUint32(buf, offset, "llama.context_length", 8192)
+	offset = writeMetadataUint32(buf, offset, "llama.vocab_size", 49152)
+	offset = writeMetadataUint32(buf, offset, "llama.rope.dimension_count", 64)
+	offset = writeMetadataFloat32(buf, offset, "llama.rope.freq_base", 100000.0)
+	offset = writeMetadataUint32(buf, offset, "tokenizer.ggml.eos_token_id", 42)
+
+	path := writeGGUF(t, buf[:offset])
+	f, err := gguf.Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	cfg, err := LoadConfigFromGGUF(f)
+	if err != nil {
+		t.Fatalf("LoadConfigFromGGUF: %v", err)
+	}
+
+	if cfg.EOSTokenID != 42 {
+		t.Errorf("EOSTokenID: expected 42, got %d", cfg.EOSTokenID)
+	}
+}
+
+func TestLoadWeightsFromGGUF_UnsupportedDims(t *testing.T) {
+	buf := make([]byte, 256)
+	offset := 0
+
+	writeUint32LE(buf, offset, gguf.Magic); offset += 4
+	writeUint32LE(buf, offset, 3); offset += 4
+	writeUint64LE(buf, offset, 1); offset += 8 // tensor_count=1
+	writeUint64LE(buf, offset, 1); offset += 8 // metadata_kv_count=1
+	offset = writeMetadataString(buf, offset, "general.architecture", "llama")
+
+	// 3D tensor with dims [2,3,4] — unsupported (only 1D and 2D)
+	offset = writeTensorInfo(buf, offset, "bad_tensor", []uint64{2, 3, 4}, gguf.TypeF32, 0)
+
+	aligned := int(gguf.AlignOffset(int64(offset), gguf.DefaultAlign))
+	for i := offset; i < aligned; i++ {
+		buf[i] = 0
+	}
+
+	path := writeGGUF(t, buf[:aligned])
+	f, err := gguf.Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	mock := &mockParamSetter{params: make(map[string]*tensor.Tensor)}
+	err = LoadWeightsFromGGUF(mock, f)
+	if err == nil {
+		t.Fatal("expected error for unsupported tensor dimensions, got nil")
+	}
+}
+
 func TestLoadWeightsFromGGUF(t *testing.T) {
 	buf := make([]byte, 2048)
 	offset := 0

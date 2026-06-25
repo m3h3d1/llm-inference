@@ -219,6 +219,60 @@ func TestNewFromGGUF_MissingTokens(t *testing.T) {
 	}
 }
 
+func TestNewFromGGUF_TokensNotArray(t *testing.T) {
+	buf := make([]byte, 512)
+	offset := 0
+
+	writeUint32LE(buf, offset, gguf.Magic); offset += 4
+	writeUint32LE(buf, offset, 3); offset += 4
+	writeUint64LE(buf, offset, 0); offset += 8
+	writeUint64LE(buf, offset, 2); offset += 8
+
+	offset = writeMetadataString(buf, offset, "tokenizer.ggml.model", "gpt2")
+	// Write tokens as a string instead of array
+	offset = writeMetadataString(buf, offset, "tokenizer.ggml.tokens", "not_an_array")
+
+	path := writeGGUF(t, buf[:offset])
+	f, err := gguf.Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	_, err = NewFromGGUF(f)
+	if err == nil {
+		t.Fatal("expected error for tokens not an array, got nil")
+	}
+}
+
+func TestNewFromGGUF_TokenNotString(t *testing.T) {
+	buf := make([]byte, 512)
+	offset := 0
+
+	writeUint32LE(buf, offset, gguf.Magic); offset += 4
+	writeUint32LE(buf, offset, 3); offset += 4
+	writeUint64LE(buf, offset, 0); offset += 8
+	writeUint64LE(buf, offset, 2); offset += 8
+
+	offset = writeMetadataString(buf, offset, "tokenizer.ggml.model", "gpt2")
+	// Write tokens array with an int32 element instead of string
+	offset = writeString(buf, offset, "tokenizer.ggml.tokens")
+	writeUint32LE(buf, offset, uint32(gguf.TypeARRAY)); offset += 4
+	writeUint32LE(buf, offset, uint32(gguf.TypeINT32)); offset += 4
+	writeUint64LE(buf, offset, 1); offset += 8
+	writeUint32LE(buf, offset, 42); offset += 4
+
+	path := writeGGUF(t, buf[:offset])
+	f, err := gguf.Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	_, err = NewFromGGUF(f)
+	if err == nil {
+		t.Fatal("expected error for token not a string, got nil")
+	}
+}
+
 func TestNewFromGGUF_BuildBytesToUnicode(t *testing.T) {
 	tok := &Tokenizer{}
 	tok.buildRevVocab()

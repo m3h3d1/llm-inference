@@ -138,14 +138,20 @@ func TestGELUNegative(t *testing.T) {
 	}
 }
 
-// TestGELUShape verifies GELU preserves input shape
+// TestGELUShape verifies GELU preserves input shape and computes correct value
 func TestGELUShape(t *testing.T) {
 	input := tensor.NewTensor(2, 3, 4)
+	input.Set(0, 0, 0, 2.0)
 
 	result := GELU(input)
 
 	if result.Dimensions() != input.Dimensions() {
 		t.Errorf("Expected %v, got %v", input.Dimensions(), result.Dimensions())
+	}
+	sqrt2OverPi := math.Sqrt(2.0 / math.Pi)
+	expected := 0.5 * 2.0 * (1 + math.Tanh(sqrt2OverPi*(2.0+0.044715*8.0)))
+	if math.Abs(result.At(0, 0, 0)-expected) > 1e-6 {
+		t.Errorf("GELU(2.0): expected %f, got %f", expected, result.At(0, 0, 0))
 	}
 }
 
@@ -175,14 +181,41 @@ func TestDropoutZeroRate(t *testing.T) {
 	}
 }
 
-// TestDropoutShape verifies dropout preserves tensor shape
+// TestDropoutShape verifies dropout preserves tensor shape, zeroes some elements, and scales survivors
 func TestDropoutShape(t *testing.T) {
 	input := tensor.NewTensor(2, 3, 4)
+	for i := range input.Data {
+		input.Data[i] = 1.0
+	}
+
 	result := Dropout(input, 0.5, true)
 
 	dims := result.Dimensions()
 	if dims[0] != 2 || dims[1] != 3 || dims[2] != 4 {
 		t.Errorf("Expected shape (2,3,4), got %v", dims)
+	}
+	// With rate=0.5 and 24 elements, nearly certain at least one is zeroed and one survives
+	hasZero := false
+	hasNonZero := false
+	for _, v := range result.Data {
+		if v == 0 {
+			hasZero = true
+		}
+		if v != 0 {
+			hasNonZero = true
+		}
+	}
+	if !hasZero {
+		t.Error("Dropout with rate=0.5 zeroed no elements (extremely unlikely)")
+	}
+	if !hasNonZero {
+		t.Error("Dropout with rate=0.5 kept no elements (extremely unlikely)")
+	}
+	// Survivors should be scaled by 1/(1-rate) = 2.0
+	for _, v := range result.Data {
+		if v != 0 && v != 2.0 {
+			t.Errorf("Survivor scaled incorrectly: expected 2.0, got %f", v)
+		}
 	}
 }
 
@@ -229,22 +262,46 @@ func TestLayerNormDefaultGammaBeta(t *testing.T) {
 
 	result := LayerNorm(input, nil, nil, 1e-5)
 
-	// Output shape should match input
 	if result.Dimensions() != input.Dimensions() {
 		t.Errorf("Expected shape %v, got %v", input.Dimensions(), result.Dimensions())
 	}
+	// Output should have mean ≈ 0 (normalized with identity gain)
+	var sum float64
+	for e := 0; e < 3; e++ {
+		sum += result.At(0, 0, e)
+	}
+	mean := sum / 3.0
+	if math.Abs(mean) > 1e-5 {
+		t.Errorf("Expected mean ≈ 0, got %f", mean)
+	}
 }
 
-// TestLayerNormShape verifies LayerNorm preserves (batch, seq, embed) shape
+// TestLayerNormShape verifies LayerNorm preserves (batch, seq, embed) shape and centers output
 func TestLayerNormShape(t *testing.T) {
 	input := tensor.NewTensor(2, 3, 4)
+	for e := 0; e < 4; e++ {
+		input.Set(0, 0, e, float64(e+1))
+	}
 	gamma := tensor.NewTensor(1, 1, 4)
 	beta := tensor.NewTensor(1, 1, 4)
+	for e := 0; e < 4; e++ {
+		gamma.Set(0, 0, e, 1.0)
+		beta.Set(0, 0, e, 0.0)
+	}
 
 	result := LayerNorm(input, gamma, beta, 1e-5)
 
 	if result.Dimensions() != input.Dimensions() {
 		t.Errorf("Expected %v, got %v", input.Dimensions(), result.Dimensions())
+	}
+	// Output for batch=0,seq=0 should have mean ≈ 0
+	var sum float64
+	for e := 0; e < 4; e++ {
+		sum += result.At(0, 0, e)
+	}
+	mean := sum / 4.0
+	if math.Abs(mean) > 1e-5 {
+		t.Errorf("Expected mean ≈ 0, got %f", mean)
 	}
 }
 

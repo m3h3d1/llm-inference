@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/llm/config"
+	"github.com/llm/tensor"
 )
 
 func testLlamaConfig() config.Config {
@@ -142,6 +143,45 @@ func TestLlamaParameters(t *testing.T) {
 				t.Errorf("missing %s", key)
 			}
 		}
+	}
+}
+
+func TestLlamaSetParameter(t *testing.T) {
+	cfg := testLlamaConfig()
+	m := NewModel(cfg)
+
+	// Case 1: Set token_embd.weight, verify change
+	newEmb := tensor.NewTensor(cfg.VocabSize, 1, cfg.EmbDim)
+	newEmb.Set(0, 0, 0, 42.0)
+	m.SetParameter("token_embd.weight", newEmb)
+	if m.Parameters()["TokenEmbedding"].At(0, 0, 0) != 42.0 {
+		t.Error("SetParameter token_embd.weight did not update TokenEmbedding")
+	}
+	if m.OutputWeight != m.TokenEmbedding {
+		t.Error("OutputWeight should still be TokenEmbedding after SetParameter")
+	}
+
+	// Case 2: Set block parameter
+	hd := cfg.EmbDim / cfg.NHeads
+	qWeight := tensor.NewTensor(1, cfg.NHeads*hd, cfg.EmbDim)
+	qWeight.Set(0, 0, 0, 99.0)
+	m.SetParameter("blk.0.attn_q.weight", qWeight)
+	if m.Parameters()["Blocks.0.Attention.Wq.Weight"].At(0, 0, 0) != 99.0 {
+		t.Error("SetParameter blk.0.attn_q.weight did not update")
+	}
+
+	// Case 3: Unknown component should be silent no-op
+	pre := m.Parameters()["Blocks.0.Attention.Wq.Weight"].At(0, 0, 0)
+	m.SetParameter("blk.0.nonexistent", qWeight)
+	if m.Parameters()["Blocks.0.Attention.Wq.Weight"].At(0, 0, 0) != pre {
+		t.Error("Unknown component should not change parameters")
+	}
+
+	// Case 4: Unknown layer index should be silent no-op
+	pre4 := m.Parameters()["Blocks.0.Attention.Wq.Weight"].At(0, 0, 0)
+	m.SetParameter("blk.99.attn_q.weight", qWeight)
+	if m.Parameters()["Blocks.0.Attention.Wq.Weight"].At(0, 0, 0) != pre4 {
+		t.Error("Unknown layer should not change parameters")
 	}
 }
 

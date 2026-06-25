@@ -1,6 +1,7 @@
 package gpt2
 
 import (
+	"math"
 	"testing"
 
 	"github.com/llm/config"
@@ -26,6 +27,12 @@ func TestEmbeddings(t *testing.T) {
 	if dims[0] != 1 || dims[1] != 3 || dims[2] != embDim {
 		t.Errorf("Expected shape (1, 3, %d), got %v", embDim, dims)
 	}
+	for _, v := range result.Data {
+		if math.IsNaN(v) {
+			t.Error("NaN in embeddings output")
+			break
+		}
+	}
 }
 
 func TestFFN(t *testing.T) {
@@ -44,6 +51,12 @@ func TestFFN(t *testing.T) {
 	if dims[0] != 1 || dims[1] != 2 || dims[2] != dModel {
 		t.Errorf("Expected shape (1, 2, %d), got %v", dModel, dims)
 	}
+	for _, v := range result.Data {
+		if math.IsNaN(v) {
+			t.Error("NaN in FFN output")
+			break
+		}
+	}
 }
 
 func TestTransformerBlock(t *testing.T) {
@@ -61,11 +74,16 @@ func TestTransformerBlock(t *testing.T) {
 	if dims[0] != 1 || dims[1] != 2 || dims[2] != dModel {
 		t.Errorf("Expected shape (1, 2, %d), got %v", dModel, dims)
 	}
+	for _, v := range result.Data {
+		if math.IsNaN(v) {
+			t.Error("NaN in transformer block output")
+			break
+		}
+	}
 }
 
 func TestGPTModel(t *testing.T) {
 	cfg := config.DefaultConfig
-	// Use smaller config for testing
 	cfg.NLayers = 2
 	cfg.NHeads = 4
 	cfg.EmbDim = 16
@@ -83,6 +101,12 @@ func TestGPTModel(t *testing.T) {
 	dims := logits.Dimensions()
 	if dims[0] != 1 || dims[1] != 5 || dims[2] != cfg.VocabSize {
 		t.Errorf("Expected shape (1, 5, %d), got %v", cfg.VocabSize, dims)
+	}
+	for _, v := range logits.Data {
+		if math.IsNaN(v) {
+			t.Error("NaN in model forward logits")
+			break
+		}
 	}
 }
 
@@ -140,7 +164,6 @@ func TestForwardWithCache(t *testing.T) {
 }
 
 func TestIntegrationWithTokenizer(t *testing.T) {
-	// Only run if we have assets (skip if running in isolation)
 	cfg := config.DefaultConfig
 	cfg.NLayers = 2
 	cfg.NHeads = 4
@@ -164,5 +187,11 @@ func TestIntegrationWithTokenizer(t *testing.T) {
 	expectedSeq := len(ids)
 	if dims[1] != expectedSeq || dims[2] != cfg.VocabSize {
 		t.Errorf("Expected shape (1, %d, %d), got %v", expectedSeq, cfg.VocabSize, dims)
+	}
+	for _, v := range logits.Data {
+		if math.IsNaN(v) {
+			t.Error("NaN in integration test logits")
+			break
+		}
 	}
 }

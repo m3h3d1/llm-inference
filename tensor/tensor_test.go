@@ -242,6 +242,18 @@ func TestScale(t *testing.T) {
 	if scaled.At(0, 0, 0) != 0.5 || scaled.At(0, 0, 1) != 1.0 || scaled.At(0, 0, 2) != 1.5 {
 		t.Errorf("Scale failed, got %v", scaled.Data)
 	}
+
+	// Scale by zero produces all zeros
+	zeroed := A.Scale(0)
+	if zeroed.At(0, 0, 0) != 0 || zeroed.At(0, 0, 1) != 0 || zeroed.At(0, 0, 2) != 0 {
+		t.Errorf("Scale(0) failed, got %v", zeroed.Data)
+	}
+
+	// Scale by -1 flips signs
+	neg := A.Scale(-1)
+	if neg.At(0, 0, 0) != -1.0 || neg.At(0, 0, 1) != -2.0 || neg.At(0, 0, 2) != -3.0 {
+		t.Errorf("Scale(-1) failed, got %v", neg.Data)
+	}
 }
 
 // TestAdd verifies element-wise addition with broadcasting
@@ -271,10 +283,66 @@ func TestAdd(t *testing.T) {
 		t.Errorf("Batch broadcasting Add failed, got %v", sum2.Data)
 	}
 
-	// Case 3: Invalid shape
+	// Case 3: Seq broadcast (1,3,1) + (1,1,4) = (1,3,4)
+	A3 := NewTensor(1, 3, 1)
+	A3.Set(0, 0, 0, 1); A3.Set(0, 1, 0, 2); A3.Set(0, 2, 0, 3)
+	B3 := NewTensor(1, 1, 4)
+	B3.Set(0, 0, 0, 10); B3.Set(0, 0, 1, 20); B3.Set(0, 0, 2, 30); B3.Set(0, 0, 3, 40)
+	sum3 := A3.Add(B3)
+	if sum3 == nil || sum3.Dimensions() != [3]int{1, 3, 4} {
+		t.Fatalf("Seq broadcast: expected (1,3,4), got %v", sum3.Dimensions())
+	}
+	if sum3.At(0, 0, 0) != 11 || sum3.At(0, 2, 3) != 43 {
+		t.Errorf("Seq broadcast values wrong, got %v", sum3.Data)
+	}
+
+	// Case 4: Embed broadcast (1,1,4) + (1,3,1) = (1,3,4) (same as above but reversed)
+	sum4 := B3.Add(A3)
+	if sum4 == nil || sum4.Dimensions() != [3]int{1, 3, 4} {
+		t.Fatalf("Embed broadcast: expected (1,3,4), got %v", sum4.Dimensions())
+	}
+	if sum4.At(0, 0, 0) != 11 || sum4.At(0, 2, 3) != 43 {
+		t.Errorf("Embed broadcast values wrong, got %v", sum4.Data)
+	}
+
+	// Case 5: Invalid shape
 	C := NewTensor(1, 1, 3)
 	res := A.Add(C)
 	if res != nil {
 		t.Error("Expected nil for invalid shape addition")
+	}
+}
+
+// TestMul verifies element-wise multiplication with broadcasting
+func TestMul(t *testing.T) {
+	// Case 1: Same shape
+	A := NewTensor(1, 2, 3)
+	A.Set(0, 0, 0, 1); A.Set(0, 0, 1, 2); A.Set(0, 0, 2, 3)
+	A.Set(0, 1, 0, 4); A.Set(0, 1, 1, 5); A.Set(0, 1, 2, 6)
+	B := NewTensor(1, 2, 3)
+	B.Set(0, 0, 0, 2); B.Set(0, 0, 1, 3); B.Set(0, 0, 2, 4)
+	B.Set(0, 1, 0, 5); B.Set(0, 1, 1, 6); B.Set(0, 1, 2, 7)
+
+	prod := A.Mul(B)
+	if prod.At(0, 0, 0) != 2 || prod.At(0, 1, 2) != 42 {
+		t.Errorf("Same-shape Mul failed, got %v", prod.Data)
+	}
+
+	// Case 2: Batch broadcast (2,1,1) * (1,1,1) = (2,1,1)
+	A2 := NewTensor(2, 1, 1)
+	A2.Set(0, 0, 0, 10); A2.Set(1, 0, 0, 20)
+	B2 := NewTensor(1, 1, 1)
+	B2.Set(0, 0, 0, 5)
+
+	prod2 := A2.Mul(B2)
+	if prod2.At(0, 0, 0) != 50 || prod2.At(1, 0, 0) != 100 {
+		t.Errorf("Broadcast Mul failed, got %v", prod2.Data)
+	}
+
+	// Case 3: Incompatible shapes return nil
+	C := NewTensor(1, 2, 3)
+	D := NewTensor(1, 3, 2)
+	if C.Mul(D) != nil {
+		t.Error("Expected nil for incompatible shapes")
 	}
 }

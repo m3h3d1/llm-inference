@@ -426,6 +426,347 @@ func TestMetadataArray(t *testing.T) {
 	}
 }
 
+func writeMetadataUint8(b []byte, offset int, key string, value uint8) int {
+	offset = writeString(b, offset, key)
+	writeUint32LE(b, offset, uint32(TypeUINT8))
+	offset += 4
+	b[offset] = value
+	return offset + 1
+}
+
+func writeMetadataInt8(b []byte, offset int, key string, value int8) int {
+	offset = writeString(b, offset, key)
+	writeUint32LE(b, offset, uint32(TypeINT8))
+	offset += 4
+	b[offset] = byte(value)
+	return offset + 1
+}
+
+func writeMetadataUint16(b []byte, offset int, key string, value uint16) int {
+	offset = writeString(b, offset, key)
+	writeUint32LE(b, offset, uint32(TypeUINT16))
+	offset += 4
+	writeUint16LE(b, offset, value)
+	return offset + 2
+}
+
+func writeMetadataInt16(b []byte, offset int, key string, value int16) int {
+	offset = writeString(b, offset, key)
+	writeUint32LE(b, offset, uint32(TypeINT16))
+	offset += 4
+	writeUint16LE(b, offset, uint16(value))
+	return offset + 2
+}
+
+func writeMetadataInt32(b []byte, offset int, key string, value int32) int {
+	offset = writeString(b, offset, key)
+	writeUint32LE(b, offset, uint32(TypeINT32))
+	offset += 4
+	writeUint32LE(b, offset, uint32(value))
+	return offset + 4
+}
+
+func writeMetadataInt64(b []byte, offset int, key string, value int64) int {
+	offset = writeString(b, offset, key)
+	writeUint32LE(b, offset, uint32(TypeINT64))
+	offset += 4
+	writeUint64LE(b, offset, uint64(value))
+	return offset + 8
+}
+
+func writeMetadataUint64(b []byte, offset int, key string, value uint64) int {
+	offset = writeString(b, offset, key)
+	writeUint32LE(b, offset, uint32(TypeUINT64))
+	offset += 4
+	writeUint64LE(b, offset, value)
+	return offset + 8
+}
+
+func writeMetadataFloat64(b []byte, offset int, key string, value float64) int {
+	offset = writeString(b, offset, key)
+	writeUint32LE(b, offset, uint32(TypeFLOAT64))
+	offset += 4
+	writeUint64LE(b, offset, math.Float64bits(value))
+	return offset + 8
+}
+
+func writeMetadataBool(b []byte, offset int, key string, value bool) int {
+	offset = writeString(b, offset, key)
+	writeUint32LE(b, offset, uint32(TypeBOOL))
+	offset += 4
+	if value {
+		b[offset] = 1
+	} else {
+		b[offset] = 0
+	}
+	return offset + 1
+}
+
+func TestReadValueTypes(t *testing.T) {
+	buf := make([]byte, 1024)
+	offset := 0
+
+	writeUint32LE(buf, offset, Magic); offset += 4
+	writeUint32LE(buf, offset, 3); offset += 4
+	writeUint64LE(buf, offset, 0); offset += 8
+	writeUint64LE(buf, offset, 11); offset += 8
+
+	offset = writeMetadataUint8(buf, offset, "val_uint8", 200)
+	offset = writeMetadataInt8(buf, offset, "val_int8", -50)
+	offset = writeMetadataUint16(buf, offset, "val_uint16", 60000)
+	offset = writeMetadataInt16(buf, offset, "val_int16", -20000)
+	offset = writeMetadataInt32(buf, offset, "val_int32", -100000)
+	offset = writeMetadataUint32(buf, offset, "val_uint32", 3000000000)
+	offset = writeMetadataInt64(buf, offset, "val_int64", -5000000000000)
+	offset = writeMetadataUint64(buf, offset, "val_uint64", 10000000000000)
+	offset = writeMetadataFloat64(buf, offset, "val_float64", 3.141592653589793)
+	offset = writeMetadataBool(buf, offset, "val_bool_true", true)
+	offset = writeMetadataBool(buf, offset, "val_bool_false", false)
+
+	path := writeGGUF(t, buf[:offset])
+	f, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	cases := []struct {
+		key string
+		check func(t *testing.T, v Value)
+	}{
+		{"val_uint8", func(t *testing.T, v Value) {
+			n, ok := v.Uint64()
+			if !ok || n != 200 {
+				t.Errorf("uint8: expected 200, got %d (ok=%v)", n, ok)
+			}
+		}},
+		{"val_int8", func(t *testing.T, v Value) {
+			n, ok := v.Int64()
+			if !ok || n != -50 {
+				t.Errorf("int8: expected -50, got %d (ok=%v)", n, ok)
+			}
+		}},
+		{"val_uint16", func(t *testing.T, v Value) {
+			n, ok := v.Uint64()
+			if !ok || n != 60000 {
+				t.Errorf("uint16: expected 60000, got %d (ok=%v)", n, ok)
+			}
+		}},
+		{"val_int16", func(t *testing.T, v Value) {
+			n, ok := v.Int64()
+			if !ok || n != -20000 {
+				t.Errorf("int16: expected -20000, got %d (ok=%v)", n, ok)
+			}
+		}},
+		{"val_int32", func(t *testing.T, v Value) {
+			n, ok := v.Int64()
+			if !ok || n != -100000 {
+				t.Errorf("int32: expected -100000, got %d (ok=%v)", n, ok)
+			}
+		}},
+		{"val_uint32", func(t *testing.T, v Value) {
+			n, ok := v.Uint64()
+			if !ok || n != 3000000000 {
+				t.Errorf("uint32: expected 3000000000, got %d (ok=%v)", n, ok)
+			}
+		}},
+		{"val_int64", func(t *testing.T, v Value) {
+			n, ok := v.Int64()
+			if !ok || n != -5000000000000 {
+				t.Errorf("int64: expected -5000000000000, got %d (ok=%v)", n, ok)
+			}
+		}},
+		{"val_uint64", func(t *testing.T, v Value) {
+			n, ok := v.Uint64()
+			if !ok || n != 10000000000000 {
+				t.Errorf("uint64: expected 10000000000000, got %d (ok=%v)", n, ok)
+			}
+		}},
+		{"val_float64", func(t *testing.T, v Value) {
+			n, ok := v.Float64()
+			if !ok || math.Abs(n-3.141592653589793) > 1e-15 {
+				t.Errorf("float64: expected ~3.14159, got %f (ok=%v)", n, ok)
+			}
+		}},
+		{"val_bool_true", func(t *testing.T, v Value) {
+			b, ok := v.Bool()
+			if !ok || !b {
+				t.Errorf("bool true: expected true, got %v (ok=%v)", b, ok)
+			}
+		}},
+		{"val_bool_false", func(t *testing.T, v Value) {
+			b, ok := v.Bool()
+			if !ok || b {
+				t.Errorf("bool false: expected false, got %v (ok=%v)", b, ok)
+			}
+		}},
+	}
+
+	for _, c := range cases {
+		t.Run(c.key, func(t *testing.T) {
+			v, ok := f.Metadata[c.key]
+			if !ok {
+				t.Fatal("missing metadata key")
+			}
+			c.check(t, v)
+		})
+	}
+}
+
+func TestFileTooSmall(t *testing.T) {
+	buf := make([]byte, 10)
+	path := writeGGUF(t, buf)
+	_, err := Open(path)
+	if err == nil {
+		t.Fatal("expected error for file too small")
+	}
+}
+
+func TestUnsupportedVersion(t *testing.T) {
+	buf := make([]byte, 24)
+	writeUint32LE(buf, 0, Magic)
+	writeUint32LE(buf, 4, 4) // version 4
+	path := writeGGUF(t, buf)
+	_, err := Open(path)
+	if err == nil {
+		t.Fatal("expected error for unsupported version")
+	}
+}
+
+func TestReadTensorTruncated(t *testing.T) {
+	buf := make([]byte, 512)
+	offset := 0
+
+	writeUint32LE(buf, offset, Magic); offset += 4
+	writeUint32LE(buf, offset, 3); offset += 4
+	writeUint64LE(buf, offset, 1); offset += 8
+	writeUint64LE(buf, offset, 0); offset += 8
+
+	offset = writeTensorInfo(buf, offset, "truncated", []uint64{10}, TypeF32, 0)
+
+	aligned := int(AlignOffset(int64(offset), DefaultAlign))
+	for i := offset; i < aligned; i++ {
+		buf[i] = 0
+	}
+
+	// Only write 20 bytes of data (need 40 for 10 F32)
+	dataStart := aligned
+	for i := 0; i < 5; i++ {
+		writeUint32LE(buf, dataStart+i*4, math.Float32bits(float32(i)))
+	}
+
+	path := writeGGUF(t, buf[:dataStart+20])
+	f, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	_, err = f.ReadTensor(f.TensorInfos[0])
+	if err == nil {
+		t.Fatal("expected error for truncated tensor data")
+	}
+}
+
+func TestReadTensorQ4_0(t *testing.T) {
+	buf := make([]byte, 512)
+	offset := 0
+
+	writeUint32LE(buf, offset, Magic); offset += 4
+	writeUint32LE(buf, offset, 3); offset += 4
+	writeUint64LE(buf, offset, 1); offset += 8
+	writeUint64LE(buf, offset, 0); offset += 8
+
+	offset = writeTensorInfo(buf, offset, "q4_tensor", []uint64{4}, TypeQ4_0, 0)
+
+	aligned := int(AlignOffset(int64(offset), DefaultAlign))
+	for i := offset; i < aligned; i++ {
+		buf[i] = 0
+	}
+
+	path := writeGGUF(t, buf[:aligned])
+	f, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	_, err = f.ReadTensor(f.TensorInfos[0])
+	if err == nil {
+		t.Fatal("expected error for Q4_0 unsupported type")
+	}
+}
+
+func TestBoolValue(t *testing.T) {
+	v := Value{Type: TypeBOOL, data: true}
+	b, ok := v.Bool()
+	if !ok || !b {
+		t.Errorf("Bool true: expected true, got %v (ok=%v)", b, ok)
+	}
+	v2 := Value{Type: TypeBOOL, data: false}
+	b2, ok2 := v2.Bool()
+	if !ok2 || b2 {
+		t.Errorf("Bool false: expected false, got %v (ok=%v)", b2, ok2)
+	}
+	// Non-bool Value returns ok=false
+	v3 := Value{Type: TypeUINT32, data: uint64(1)}
+	_, ok3 := v3.Bool()
+	if ok3 {
+		t.Error("UINT32 Bool should return ok=false")
+	}
+}
+
+func TestTypeSize(t *testing.T) {
+	if got := typeSize(TypeF32); got != 4 {
+		t.Errorf("F32 size: expected 4, got %d", got)
+	}
+	if got := typeSize(TypeF16); got != 2 {
+		t.Errorf("F16 size: expected 2, got %d", got)
+	}
+	if got := typeSize(TypeQ8_0); got != 1 {
+		t.Errorf("Q8_0 size: expected 1, got %d", got)
+	}
+	if got := typeSize(TensorType(99)); got != 0 {
+		t.Errorf("unknown type: expected 0, got %d", got)
+	}
+}
+
+func TestCustomAlignmentOne(t *testing.T) {
+	buf := make([]byte, 512)
+	offset := 0
+
+	writeUint32LE(buf, offset, Magic); offset += 4
+	writeUint32LE(buf, offset, 3); offset += 4
+	writeUint64LE(buf, offset, 1); offset += 8
+	writeUint64LE(buf, offset, 1); offset += 8
+
+	offset = writeMetadataUint32(buf, offset, "general.alignment", 1)
+
+	offset = writeTensorInfo(buf, offset, "t", []uint64{1}, TypeF32, 0)
+
+	aligned := int(AlignOffset(int64(offset), 1))
+	if aligned != offset {
+		t.Errorf("alignment=1: expected dataStart=%d, got %d", offset, aligned)
+	}
+
+	for i := offset; i < aligned; i++ {
+		buf[i] = 0
+	}
+
+	writeUint32LE(buf, aligned, math.Float32bits(99.0))
+
+	path := writeGGUF(t, buf[:aligned+4])
+	f, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	data, err := f.ReadTensor(f.TensorInfos[0])
+	if err != nil {
+		t.Fatalf("ReadTensor: %v", err)
+	}
+	if len(data) != 1 || data[0] != 99.0 {
+		t.Errorf("expected [99.0], got %v", data)
+	}
+}
+
 func TestReadString(t *testing.T) {
 	buf := make([]byte, 20)
 	_ = writeString(buf, 0, "hello")
