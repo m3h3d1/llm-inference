@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/llm/config"
-	"github.com/llm/model"
+	gpt2 "github.com/llm/model/gpt2"
 	"github.com/llm/weights"
 )
 
@@ -18,7 +18,7 @@ func main() {
 		DropRate:   0.0,
 		QKVBias:    false,
 	}
-	gpt := model.NewGPTModel(cfg)
+	gpt := gpt2.NewModel(cfg)
 
 	params := gpt.Parameters()
 	fmt.Printf("Total parameters: %d\n", len(params))

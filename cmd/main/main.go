@@ -7,7 +7,8 @@ import (
 	"github.com/llm/config"
 	"github.com/llm/gguf"
 	"github.com/llm/inference"
-	"github.com/llm/model"
+	gpt2 "github.com/llm/model/gpt2"
+	"github.com/llm/model/llama"
 	"github.com/llm/tokenizer"
 	"github.com/llm/weights"
 )
@@ -62,7 +63,7 @@ func main() {
 	cfg.TopP = *topP
 	cfg.Seed = *seed
 
-	gpt := model.NewGPTModel(cfg)
+	gpt := gpt2.NewModel(cfg)
 	var tok *tokenizer.Tokenizer
 	if cfg.VocabSize < 10000 {
 		tok = tokenizer.NewMock()
@@ -121,7 +122,7 @@ func runGGUF(path, prompt string, maxTokens int, repPenalty, temperature, topP f
 		archStr,
 		cfg.NLayers, cfg.EmbDim, cfg.NHeads, cfg.NKVHeads)
 
-	m := model.NewLlamaModel(cfg)
+	m := llama.NewModel(cfg)
 
 	fmt.Println("Loading weights from GGUF...")
 	if err := weights.LoadWeightsFromGGUF(m, f); err != nil {

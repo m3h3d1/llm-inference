@@ -8,12 +8,12 @@ import (
 )
 
 type Tokenizer struct {
-	Vocab           map[string]int
+	Vocab          map[string]int
 	revVocab       map[int]string
-	Merges          [][2]string
-	bytesToUnicode  map[byte]rune
-	unicodeToBytes  map[rune]byte
-	AddedTokens     []string
+	Merges         [][2]string
+	bytesToUnicode map[byte]rune
+	unicodeToBytes map[rune]byte
+	AddedTokens    []string
 }
 
 func NewMock() *Tokenizer {
@@ -25,7 +25,7 @@ func NewMock() *Tokenizer {
 		"he": 4,
 		"ll": 5,
 	}
-	
+
 	tok := &Tokenizer{
 		Vocab: vocab,
 		Merges: [][2]string{
@@ -41,6 +41,22 @@ func (t *Tokenizer) buildRevVocab() {
 	t.revVocab = make(map[int]string)
 	for k, v := range t.Vocab {
 		t.revVocab[v] = k
+	}
+}
+
+func (t *Tokenizer) buildBytesToUnicode() {
+	t.bytesToUnicode = make(map[byte]rune)
+	t.unicodeToBytes = make(map[rune]byte)
+	for b := 0; b < 256; b++ {
+		byteVal := byte(b)
+		var r rune
+		if b >= 33 && b <= 126 {
+			r = rune(b)
+		} else {
+			r = rune(b + 256)
+		}
+		t.bytesToUnicode[byteVal] = r
+		t.unicodeToBytes[r] = byteVal
 	}
 }
 
@@ -76,20 +92,7 @@ func NewFromFiles(vocabPath, mergesPath string) (*Tokenizer, error) {
 		}
 	}
 
-	tok.bytesToUnicode = make(map[byte]rune)
-	tok.unicodeToBytes = make(map[rune]byte)
-	
-	for b := 0; b < 256; b++ {
-		byteVal := byte(b)
-		var r rune
-		if b >= 33 && b <= 126 {
-			r = rune(b)
-		} else {
-			r = rune(b + 256)
-		}
-		tok.bytesToUnicode[byteVal] = r
-		tok.unicodeToBytes[r] = byteVal
-	}
+	tok.buildBytesToUnicode()
 
 	tok.buildRevVocab()
 	return tok, scanner.Err()

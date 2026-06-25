@@ -14,13 +14,12 @@ type Config struct {
 	Seed              int64
 
 	// Llama architecture fields
-	NKVHeads          int
-	DFF               int
-	RopeDim           int
-	RopeTheta         float64
-	RmsNormEps        float64
-	UseTiedEmbeddings bool
-	EOSTokenID        int
+	NKVHeads   int
+	DFF        int
+	RopeDim    int
+	RopeTheta  float64
+	RmsNormEps float64
+	EOSTokenID int
 }
 
 var DefaultConfig = Config{
@@ -66,7 +65,6 @@ var SmolLM2_135M = Config{
 	RopeTheta:         100000.0,
 	RmsNormEps:        1e-5,
 	QKVBias:           false,
-	UseTiedEmbeddings: true,
 	Temperature:       1.0,
 	TopP:              1.0,
 	RepetitionPenalty: 1.0,
@@ -87,7 +85,6 @@ var SmolLM2_360M = Config{
 	RopeTheta:         100000.0,
 	RmsNormEps:        1e-5,
 	QKVBias:           false,
-	UseTiedEmbeddings: true,
 	Temperature:       1.0,
 	TopP:              1.0,
 	RepetitionPenalty: 1.0,
@@ -108,7 +105,6 @@ var SmolLM2_1_7B = Config{
 	RopeTheta:         130000.0,
 	RmsNormEps:        1e-5,
 	QKVBias:           false,
-	UseTiedEmbeddings: true,
 	Temperature:       1.0,
 	TopP:              1.0,
 	RepetitionPenalty: 1.0,

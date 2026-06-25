@@ -1,4 +1,4 @@
-package model
+package gpt2
 
 import (
 	"fmt"
@@ -7,17 +7,10 @@ import (
 	"github.com/llm/linear"
 	"github.com/llm/math"
 	"github.com/llm/tensor"
+	"github.com/llm/model"
 )
 
-// KVCache holds the cached Key and Value tensors for each transformer layer
-// and tracks the total number of tokens processed (for position offset).
-type KVCache struct {
-	Keys   []*tensor.Tensor
-	Values []*tensor.Tensor
-	SeqLen int
-}
-
-type GPTModel struct {
+type Model struct {
 	Cfg            config.Config
 	Embeddings     *Embeddings
 	Blocks         []*TransformerBlock
@@ -26,7 +19,7 @@ type GPTModel struct {
 	OutputProj     *linear.Linear
 }
 
-func NewGPTModel(cfg config.Config) *GPTModel {
+func NewModel(cfg config.Config) *Model {
 	blocks := make([]*TransformerBlock, cfg.NLayers)
 	for i := 0; i < cfg.NLayers; i++ {
 		blocks[i] = NewTransformerBlock(cfg.EmbDim, cfg.NHeads, cfg.DropRate)
@@ -38,7 +31,7 @@ func NewGPTModel(cfg config.Config) *GPTModel {
 		finalNormGamma.Set(0, 0, i, 1.0)
 	}
 
-	m := &GPTModel{
+	m := &Model{
 		Cfg:            cfg,
 		Embeddings:     NewEmbeddings(cfg.VocabSize, cfg.ContextLen, cfg.EmbDim),
 		Blocks:         blocks,
@@ -52,7 +45,7 @@ func NewGPTModel(cfg config.Config) *GPTModel {
 	return m
 }
 
-func (m *GPTModel) Forward(tokenIDs []int) *tensor.Tensor {
+func (m *Model) Forward(tokenIDs []int) *tensor.Tensor {
 	// 1. Embedding
 	x := m.Embeddings.Forward(tokenIDs, 0)
 
@@ -77,7 +70,7 @@ func (m *GPTModel) Forward(tokenIDs []int) *tensor.Tensor {
 // ForwardWithCache processes tokenIDs through the model, accepting and returning
 // a KV cache. Pass pastCache=nil for the first call (prefill); subsequent calls
 // pass the cache returned by the previous call (decode).
-func (m *GPTModel) ForwardWithCache(tokenIDs []int, pastCache *KVCache) (*tensor.Tensor, *KVCache) {
+func (m *Model) ForwardWithCache(tokenIDs []int, pastCache *model.KVCache) (*tensor.Tensor, *model.KVCache) {
 	startPos := 0
 	if pastCache != nil {
 		startPos = pastCache.SeqLen
@@ -85,7 +78,7 @@ func (m *GPTModel) ForwardWithCache(tokenIDs []int, pastCache *KVCache) (*tensor
 	x := m.Embeddings.Forward(tokenIDs, startPos)
 	x = math.Dropout(x, m.Cfg.DropRate, false)
 
-	newCache := &KVCache{
+	newCache := &model.KVCache{
 		Keys:   make([]*tensor.Tensor, len(m.Blocks)),
 		Values: make([]*tensor.Tensor, len(m.Blocks)),
 		SeqLen: startPos + len(tokenIDs),
@@ -112,7 +105,7 @@ func (m *GPTModel) ForwardWithCache(tokenIDs []int, pastCache *KVCache) (*tensor
 	return logits, newCache
 }
 
-func (m *GPTModel) Parameters() map[string]*tensor.Tensor {
+func (m *Model) Parameters() map[string]*tensor.Tensor {
 	params := make(map[string]*tensor.Tensor)
 	
 	for k, v := range m.Embeddings.Parameters() {

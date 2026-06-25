@@ -1,13 +1,12 @@
-package model
+package gpt2
 
 import (
-	"github.com/llm/attention"
 	"github.com/llm/math"
 	"github.com/llm/tensor"
 )
 
 type TransformerBlock struct {
-	Attention *attention.SelfAttention
+	Attention *SelfAttention
 	FFN       *FeedForward
 	LN1Gamma  *tensor.Tensor
 	LN1Beta   *tensor.Tensor
@@ -28,7 +27,7 @@ func NewTransformerBlock(dModel int, nHeads int, dropRate float64) *TransformerB
 	}
 
 	return &TransformerBlock{
-		Attention: attention.NewSelfAttention(dModel, nHeads, dropRate),
+		Attention: NewSelfAttention(dModel, nHeads, dropRate),
 		FFN:       NewFeedForward(dModel, dModel*4),
 		LN1Gamma:  lN1Gamma,
 		LN1Beta:   lN1Beta,

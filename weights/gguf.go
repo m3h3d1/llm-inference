@@ -3,8 +3,8 @@ package weights
 import (
 	"fmt"
 
-	"github.com/llm/gguf"
 	"github.com/llm/config"
+	"github.com/llm/gguf"
 	"github.com/llm/tensor"
 )
 
@@ -114,7 +114,6 @@ func LoadConfigFromGGUF(f *gguf.File) (config.Config, error) {
 		RopeTheta:         ropeTheta,
 		RmsNormEps:        rmsEps,
 		QKVBias:           false,
-		UseTiedEmbeddings: true,
 		EOSTokenID:        eosID,
 		Temperature:       1.0,
 		TopP:              1.0,

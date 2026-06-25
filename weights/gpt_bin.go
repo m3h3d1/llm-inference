@@ -3,132 +3,16 @@ package weights
 import (
 	"bufio"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
 
-	"github.com/llm/model"
-	"github.com/llm/tensor"
+	gpt2 "github.com/llm/model/gpt2"
 )
 
-const (
-	MagicNumber = 0x4C4C4D00
-	Version     = 1
-)
-
-type WeightData struct {
-	Shape []int       `json:"shape"`
-	Data  []float64   `json:"data"`
-}
-
-type WeightMap map[string]WeightData
-
-func LoadWeightsJSON(gpt *model.GPTModel, path string, strict bool) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
-	}
-
-	var weights WeightMap
-	if err := json.Unmarshal(data, &weights); err != nil {
-		return fmt.Errorf("failed to parse JSON: %w", err)
-	}
-
+func SaveWeightsBinary(gpt *gpt2.Model, path string) error {
 	params := gpt.Parameters()
 
-	for key, tensorVal := range params {
-		weightData, ok := weights[key]
-		if !ok {
-			if strict {
-				return fmt.Errorf("missing weight in JSON: %s", key)
-			}
-			fmt.Printf("Warning: No weight found in JSON for key: %s\n", key)
-			continue
-		}
-
-		if !validateShape(tensorVal, weightData.Shape) {
-			return fmt.Errorf("shape mismatch for key %s: expected %v, got %v", key, tensorVal.Dimensions(), weightData.Shape)
-		}
-
-		copyDataToTensor(tensorVal, weightData.Data)
-	}
-
-	if strict {
-		for key := range weights {
-			if _, ok := params[key]; !ok {
-				return fmt.Errorf("extra key in JSON: %s", key)
-			}
-		}
-	}
-
-	return nil
-}
-
-func validateShape(t *tensor.Tensor, shape []int) bool {
-	dims := t.Dimensions()
-	if len(dims) != len(shape) {
-		return false
-	}
-	for i := 0; i < len(dims); i++ {
-		if dims[i] != shape[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func copyDataToTensor(t *tensor.Tensor, data []float64) {
-	dims := t.Dimensions()
-	idx := 0
-	for b := 0; b < dims[0]; b++ {
-		for s := 0; s < dims[1]; s++ {
-			for e := 0; e < dims[2]; e++ {
-				t.Set(b, s, e, data[idx])
-				idx++
-			}
-		}
-	}
-}
-
-func SaveWeightsJSON(gpt *model.GPTModel, path string) error {
-	params := gpt.Parameters()
-	weights := make(WeightMap)
-
-	for key, t := range params {
-		dims := t.Dimensions()
-		shape := []int{dims[0], dims[1], dims[2]}
-		data := make([]float64, 0, dims[0]*dims[1]*dims[2])
-		
-		for b := 0; b < dims[0]; b++ {
-			for s := 0; s < dims[1]; s++ {
-				for e := 0; e < dims[2]; e++ {
-					data = append(data, t.At(b, s, e))
-				}
-			}
-		}
-		
-		weights[key] = WeightData{
-			Shape: shape,
-			Data:  data,
-		}
-	}
-
-	data, err := json.MarshalIndent(weights, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal JSON: %w", err)
-	}
-
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
-	}
-
-	return nil
-}
-
-func SaveWeightsBinary(gpt *model.GPTModel, path string) error {
-	params := gpt.Parameters()
-	
 	keys := make([]string, 0, len(params))
 	for k := range params {
 		keys = append(keys, k)
@@ -142,7 +26,7 @@ func SaveWeightsBinary(gpt *model.GPTModel, path string) error {
 	defer file.Close()
 
 	writer := bufio.NewWriter(file)
-	
+
 	if err := binary.Write(writer, binary.LittleEndian, uint32(MagicNumber)); err != nil {
 		return fmt.Errorf("failed to write magic number: %w", err)
 	}
@@ -156,7 +40,7 @@ func SaveWeightsBinary(gpt *model.GPTModel, path string) error {
 	for _, key := range keys {
 		t := params[key]
 		dims := t.Dimensions()
-		
+
 		keyBytes := []byte(key)
 		if err := binary.Write(writer, binary.LittleEndian, int32(len(keyBytes))); err != nil {
 			return fmt.Errorf("failed to write key length: %w", err)
@@ -164,7 +48,7 @@ func SaveWeightsBinary(gpt *model.GPTModel, path string) error {
 		if _, err := writer.Write(keyBytes); err != nil {
 			return fmt.Errorf("failed to write key: %w", err)
 		}
-		
+
 		if err := binary.Write(writer, binary.LittleEndian, int32(len(dims))); err != nil {
 			return fmt.Errorf("failed to write dim count: %w", err)
 		}
@@ -173,7 +57,7 @@ func SaveWeightsBinary(gpt *model.GPTModel, path string) error {
 				return fmt.Errorf("failed to write dim: %w", err)
 			}
 		}
-		
+
 		totalElements := dims[0] * dims[1] * dims[2]
 		data := make([]float32, totalElements)
 		idx := 0
@@ -185,7 +69,7 @@ func SaveWeightsBinary(gpt *model.GPTModel, path string) error {
 				}
 			}
 		}
-		
+
 		if err := binary.Write(writer, binary.LittleEndian, data); err != nil {
 			return fmt.Errorf("failed to write data: %w", err)
 		}
@@ -194,7 +78,7 @@ func SaveWeightsBinary(gpt *model.GPTModel, path string) error {
 	return writer.Flush()
 }
 
-func LoadWeightsBinary(gpt *model.GPTModel, path string, strict bool) error {
+func LoadWeightsBinary(gpt *gpt2.Model, path string, strict bool) error {
 	file, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
@@ -202,7 +86,7 @@ func LoadWeightsBinary(gpt *model.GPTModel, path string, strict bool) error {
 	defer file.Close()
 
 	reader := bufio.NewReader(file)
-	
+
 	var magic uint32
 	if err := binary.Read(reader, binary.LittleEndian, &magic); err != nil {
 		return fmt.Errorf("failed to read magic number: %w", err)
@@ -210,7 +94,7 @@ func LoadWeightsBinary(gpt *model.GPTModel, path string, strict bool) error {
 	if magic != MagicNumber {
 		return fmt.Errorf("invalid magic number: expected 0x%X, got 0x%X", MagicNumber, magic)
 	}
-	
+
 	var ver int32
 	if err := binary.Read(reader, binary.LittleEndian, &ver); err != nil {
 		return fmt.Errorf("failed to read version: %w", err)
@@ -218,7 +102,7 @@ func LoadWeightsBinary(gpt *model.GPTModel, path string, strict bool) error {
 	if ver != Version {
 		return fmt.Errorf("unsupported version: expected %d, got %d", Version, ver)
 	}
-	
+
 	var count int32
 	if err := binary.Read(reader, binary.LittleEndian, &count); err != nil {
 		return fmt.Errorf("failed to read tensor count: %w", err)
@@ -258,11 +142,13 @@ func LoadWeightsBinary(gpt *model.GPTModel, path string, strict bool) error {
 			}
 			fmt.Printf("Warning: No weight found in model for key: %s\n", key)
 			totalElements := 1
-			for _, s := range shape {
-				totalElements *= s
+			for _, d := range shape {
+				totalElements *= d
 			}
-			floatData := make([]float32, totalElements)
-			binary.Read(reader, binary.LittleEndian, floatData)
+			skipBytes := make([]byte, totalElements*4)
+			if _, err := reader.Read(skipBytes); err != nil {
+				return fmt.Errorf("failed to skip tensor data: %w", err)
+			}
 			continue
 		}
 
@@ -270,18 +156,20 @@ func LoadWeightsBinary(gpt *model.GPTModel, path string, strict bool) error {
 			return fmt.Errorf("shape mismatch for key %s: expected %v, got %v", key, tensorVal.Dimensions(), shape)
 		}
 
-		dims := tensorVal.Dimensions()
-		totalElements := dims[0] * dims[1] * dims[2]
-		floatData := make([]float32, totalElements)
-		if err := binary.Read(reader, binary.LittleEndian, floatData); err != nil {
-			return fmt.Errorf("failed to read data: %w", err)
+		totalElements := 1
+		for _, d := range shape {
+			totalElements *= d
+		}
+		data := make([]float32, totalElements)
+		if err := binary.Read(reader, binary.LittleEndian, &data); err != nil {
+			return fmt.Errorf("failed to read data for %s: %w", key, err)
 		}
 
 		idx := 0
-		for b := 0; b < dims[0]; b++ {
-			for s := 0; s < dims[1]; s++ {
-				for e := 0; e < dims[2]; e++ {
-					tensorVal.Set(b, s, e, float64(floatData[idx]))
+		for b := 0; b < shape[0]; b++ {
+			for s := 0; s < shape[1]; s++ {
+				for e := 0; e < shape[2]; e++ {
+					tensorVal.Set(b, s, e, float64(data[idx]))
 					idx++
 				}
 			}

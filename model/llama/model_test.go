@@ -1,4 +1,4 @@
-package model
+package llama
 
 import (
 	"math"
@@ -21,7 +21,6 @@ func testLlamaConfig() config.Config {
 		RopeTheta:         10000.0,
 		RmsNormEps:        1e-5,
 		QKVBias:           false,
-		UseTiedEmbeddings: true,
 		Temperature:       1.0,
 		TopP:              1.0,
 		RepetitionPenalty: 1.0,
@@ -29,11 +28,11 @@ func testLlamaConfig() config.Config {
 	}
 }
 
-func TestNewLlamaModel(t *testing.T) {
+func TestNewModel(t *testing.T) {
 	cfg := testLlamaConfig()
-	m := NewLlamaModel(cfg)
+	m := NewModel(cfg)
 	if m == nil {
-		t.Fatal("NewLlamaModel returned nil")
+		t.Fatal("NewModel returned nil")
 	}
 	if len(m.Blocks) != cfg.NLayers {
 		t.Errorf("expected %d blocks, got %d", cfg.NLayers, len(m.Blocks))
@@ -45,7 +44,7 @@ func TestNewLlamaModel(t *testing.T) {
 
 func TestLlamaForward(t *testing.T) {
 	cfg := testLlamaConfig()
-	m := NewLlamaModel(cfg)
+	m := NewModel(cfg)
 
 	tokenIDs := []int{1, 2, 3}
 	logits := m.Forward(tokenIDs)
@@ -72,7 +71,7 @@ func TestLlamaForward(t *testing.T) {
 
 func TestLlamaForwardWithCache(t *testing.T) {
 	cfg := testLlamaConfig()
-	m := NewLlamaModel(cfg)
+	m := NewModel(cfg)
 
 	prefillIDs := []int{1, 2, 3}
 	logits1, cache := m.ForwardWithCache(prefillIDs, nil)
@@ -114,7 +113,7 @@ func TestLlamaForwardWithCache(t *testing.T) {
 
 func TestLlamaParameters(t *testing.T) {
 	cfg := testLlamaConfig()
-	m := NewLlamaModel(cfg)
+	m := NewModel(cfg)
 	params := m.Parameters()
 
 	if len(params) == 0 {

@@ -1,4 +1,4 @@
-package attention
+package gpt2
 
 import (
 	"math"
@@ -152,5 +152,4 @@ func (sa *SelfAttention) Parameters() map[string]*tensor.Tensor {
 	}
 	return params
 }
-
 

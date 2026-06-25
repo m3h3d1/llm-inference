@@ -1,4 +1,4 @@
-package model
+package llama
 
 import (
 	"github.com/llm/tensor"
@@ -11,10 +11,10 @@ type LlamaBlock struct {
 	FFN           *SwiGLUFFN
 }
 
-func NewLlamaBlock(embDim, nHeads, nKVHeads, headDim, ropeDim, dff int, tables *RopeTables, rmsEps float64) *LlamaBlock {
+func NewLlamaBlock(embDim, nHeads, nKVHeads, headDim, dff int, tables *RopeTables, rmsEps float64) *LlamaBlock {
 	return &LlamaBlock{
 		AttentionNorm: NewRMSNorm(embDim, rmsEps),
-		Attention:     NewLlamaAttention(embDim, nHeads, nKVHeads, headDim, ropeDim, tables),
+		Attention:     NewLlamaAttention(embDim, nHeads, nKVHeads, headDim, tables.RopeDim, tables),
 		FFNNorm:       NewRMSNorm(embDim, rmsEps),
 		FFN:           NewSwiGLUFFN(embDim, dff),
 	}

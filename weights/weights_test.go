@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/llm/config"
-	"github.com/llm/model"
+	gpt2 "github.com/llm/model/gpt2"
 	"github.com/llm/tensor"
 )
 
@@ -89,7 +89,7 @@ func paramsClose(t *testing.T, got, want map[string]*tensor.Tensor, eps float64)
 
 func TestSaveLoadJSON(t *testing.T) {
 	cfg := testConfig()
-	original := model.NewGPTModel(cfg)
+	original := gpt2.NewModel(cfg)
 
 	path := filepath.Join(t.TempDir(), "weights.json")
 	if err := SaveWeightsJSON(original, path); err != nil {
@@ -104,7 +104,7 @@ func TestSaveLoadJSON(t *testing.T) {
 		t.Fatal("saved JSON weights file is empty")
 	}
 
-	loaded := model.NewGPTModel(cfg)
+	loaded := gpt2.NewModel(cfg)
 	if err := LoadWeightsJSON(loaded, path, true); err != nil {
 		t.Fatalf("LoadWeightsJSON: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestSaveLoadJSON(t *testing.T) {
 
 func TestSaveLoadBinary(t *testing.T) {
 	cfg := testConfig()
-	original := model.NewGPTModel(cfg)
+	original := gpt2.NewModel(cfg)
 
 	path := filepath.Join(t.TempDir(), "weights.bin")
 	if err := SaveWeightsBinary(original, path); err != nil {
@@ -131,7 +131,7 @@ func TestSaveLoadBinary(t *testing.T) {
 		t.Fatal("saved binary weights file is empty")
 	}
 
-	loaded := model.NewGPTModel(cfg)
+	loaded := gpt2.NewModel(cfg)
 	if err := LoadWeightsBinary(loaded, path, true); err != nil {
 		t.Fatalf("LoadWeightsBinary: %v", err)
 	}
@@ -147,13 +147,13 @@ func TestJSONStrictMissingKey(t *testing.T) {
 
 	cfgLarge := testConfig()
 
-	small := model.NewGPTModel(cfgSmall)
+	small := gpt2.NewModel(cfgSmall)
 	path := filepath.Join(t.TempDir(), "weights_partial.json")
 	if err := SaveWeightsJSON(small, path); err != nil {
 		t.Fatalf("SaveWeightsJSON: %v", err)
 	}
 
-	large := model.NewGPTModel(cfgLarge)
+	large := gpt2.NewModel(cfgLarge)
 	err := LoadWeightsJSON(large, path, true)
 	if err == nil {
 		t.Fatal("expected error for missing keys in strict mode")
@@ -166,13 +166,13 @@ func TestJSONNonStrictMissingKey(t *testing.T) {
 
 	cfgLarge := testConfig()
 
-	small := model.NewGPTModel(cfgSmall)
+	small := gpt2.NewModel(cfgSmall)
 	path := filepath.Join(t.TempDir(), "weights_partial.json")
 	if err := SaveWeightsJSON(small, path); err != nil {
 		t.Fatalf("SaveWeightsJSON: %v", err)
 	}
 
-	large := model.NewGPTModel(cfgLarge)
+	large := gpt2.NewModel(cfgLarge)
 	if err := LoadWeightsJSON(large, path, false); err != nil {
 		t.Fatalf("non-strict load should not error: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestBinaryInvalidMagic(t *testing.T) {
 	}
 
 	cfg := testConfig()
-	m := model.NewGPTModel(cfg)
+	m := gpt2.NewModel(cfg)
 	err := LoadWeightsBinary(m, path, true)
 	if err == nil {
 		t.Fatal("expected error for invalid magic number")
@@ -194,7 +194,7 @@ func TestBinaryInvalidMagic(t *testing.T) {
 
 func TestBinaryInvalidVersion(t *testing.T) {
 	cfg := testConfig()
-	original := model.NewGPTModel(cfg)
+	original := gpt2.NewModel(cfg)
 
 	path := filepath.Join(t.TempDir(), "bad_version.bin")
 	if err := SaveWeightsBinary(original, path); err != nil {
@@ -210,7 +210,7 @@ func TestBinaryInvalidVersion(t *testing.T) {
 		t.Fatalf("write corrupted file: %v", err)
 	}
 
-	m := model.NewGPTModel(cfg)
+	m := gpt2.NewModel(cfg)
 	err = LoadWeightsBinary(m, path, true)
 	if err == nil {
 		t.Fatal("expected error for invalid version")
@@ -223,13 +223,13 @@ func TestJSONStrictExtraKey(t *testing.T) {
 
 	cfgLarge := testConfig()
 
-	large := model.NewGPTModel(cfgLarge)
+	large := gpt2.NewModel(cfgLarge)
 	path := filepath.Join(t.TempDir(), "weights_extra.json")
 	if err := SaveWeightsJSON(large, path); err != nil {
 		t.Fatalf("SaveWeightsJSON: %v", err)
 	}
 
-	small := model.NewGPTModel(cfgSmall)
+	small := gpt2.NewModel(cfgSmall)
 	err := LoadWeightsJSON(small, path, true)
 	if err == nil {
 		t.Fatal("expected error for extra keys in strict mode")
@@ -242,13 +242,13 @@ func TestBinaryStrictMissingKey(t *testing.T) {
 
 	cfgLarge := testConfig()
 
-	small := model.NewGPTModel(cfgSmall)
+	small := gpt2.NewModel(cfgSmall)
 	path := filepath.Join(t.TempDir(), "weights_partial.bin")
 	if err := SaveWeightsBinary(small, path); err != nil {
 		t.Fatalf("SaveWeightsBinary: %v", err)
 	}
 
-	large := model.NewGPTModel(cfgLarge)
+	large := gpt2.NewModel(cfgLarge)
 	err := LoadWeightsBinary(large, path, true)
 	if err == nil {
 		t.Fatal("expected error for missing keys in strict mode")
@@ -261,13 +261,13 @@ func TestBinaryStrictExtraKey(t *testing.T) {
 
 	cfgLarge := testConfig()
 
-	large := model.NewGPTModel(cfgLarge)
+	large := gpt2.NewModel(cfgLarge)
 	path := filepath.Join(t.TempDir(), "weights_extra.bin")
 	if err := SaveWeightsBinary(large, path); err != nil {
 		t.Fatalf("SaveWeightsBinary: %v", err)
 	}
 
-	small := model.NewGPTModel(cfgSmall)
+	small := gpt2.NewModel(cfgSmall)
 	err := LoadWeightsBinary(small, path, true)
 	if err == nil {
 		t.Fatal("expected error for extra keys in strict mode")

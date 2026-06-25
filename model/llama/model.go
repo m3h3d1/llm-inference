@@ -1,14 +1,15 @@
-package model
+package llama
 
 import (
 	"fmt"
 
 	"github.com/llm/config"
 	llmmath "github.com/llm/math"
+	"github.com/llm/model"
 	"github.com/llm/tensor"
 )
 
-type LlamaModel struct {
+type Model struct {
 	Cfg            config.Config
 	TokenEmbedding *tensor.Tensor
 	Blocks         []*LlamaBlock
@@ -17,7 +18,7 @@ type LlamaModel struct {
 	tables         *RopeTables
 }
 
-func NewLlamaModel(cfg config.Config) *LlamaModel {
+func NewModel(cfg config.Config) *Model {
 	headDim := cfg.EmbDim / cfg.NHeads
 	tables := NewRopeTables(cfg.ContextLen, cfg.RopeDim, cfg.RopeTheta)
 
@@ -25,12 +26,12 @@ func NewLlamaModel(cfg config.Config) *LlamaModel {
 
 	blocks := make([]*LlamaBlock, cfg.NLayers)
 	for i := 0; i < cfg.NLayers; i++ {
-		blocks[i] = NewLlamaBlock(cfg.EmbDim, cfg.NHeads, cfg.NKVHeads, headDim, cfg.RopeDim, cfg.DFF, tables, cfg.RmsNormEps)
+		blocks[i] = NewLlamaBlock(cfg.EmbDim, cfg.NHeads, cfg.NKVHeads, headDim, cfg.DFF, tables, cfg.RmsNormEps)
 	}
 
 	finalNorm := NewRMSNorm(cfg.EmbDim, cfg.RmsNormEps)
 
-	m := &LlamaModel{
+	m := &Model{
 		Cfg:            cfg,
 		TokenEmbedding: tokenEmb,
 		Blocks:         blocks,
@@ -42,7 +43,7 @@ func NewLlamaModel(cfg config.Config) *LlamaModel {
 	return m
 }
 
-func (m *LlamaModel) embed(tokenIDs []int, startPos int) *tensor.Tensor {
+func (m *Model) embed(tokenIDs []int, startPos int) *tensor.Tensor {
 	batch := 1
 	seq := len(tokenIDs)
 	result := tensor.NewTensor(batch, seq, m.Cfg.EmbDim)
@@ -55,7 +56,7 @@ func (m *LlamaModel) embed(tokenIDs []int, startPos int) *tensor.Tensor {
 	return result
 }
 
-func (m *LlamaModel) Forward(tokenIDs []int) *tensor.Tensor {
+func (m *Model) Forward(tokenIDs []int) *tensor.Tensor {
 	x := m.embed(tokenIDs, 0)
 	mask := llmmath.CreateCausalMask(len(tokenIDs))
 
@@ -68,7 +69,7 @@ func (m *LlamaModel) Forward(tokenIDs []int) *tensor.Tensor {
 	return logits
 }
 
-func (m *LlamaModel) ForwardWithCache(tokenIDs []int, pastCache *KVCache) (*tensor.Tensor, *KVCache) {
+func (m *Model) ForwardWithCache(tokenIDs []int, pastCache *model.KVCache) (*tensor.Tensor, *model.KVCache) {
 	startPos := 0
 	if pastCache != nil {
 		startPos = pastCache.SeqLen
@@ -76,7 +77,7 @@ func (m *LlamaModel) ForwardWithCache(tokenIDs []int, pastCache *KVCache) (*tens
 
 	x := m.embed(tokenIDs, startPos)
 
-	newCache := &KVCache{
+	newCache := &model.KVCache{
 		Keys:   make([]*tensor.Tensor, len(m.Blocks)),
 		Values: make([]*tensor.Tensor, len(m.Blocks)),
 		SeqLen: startPos + len(tokenIDs),
@@ -119,7 +120,7 @@ func outputLogits(x *tensor.Tensor, outputWeight *tensor.Tensor) *tensor.Tensor 
 	return result
 }
 
-func (m *LlamaModel) SetParameter(name string, data *tensor.Tensor) {
+func (m *Model) SetParameter(name string, data *tensor.Tensor) {
 	res := func(d *tensor.Tensor, batch, seq, embed int) *tensor.Tensor {
 		r := d.Reshape(batch, seq, embed)
 		if r == nil {
@@ -188,7 +189,7 @@ func (m *LlamaModel) SetParameter(name string, data *tensor.Tensor) {
 	}
 }
 
-func (m *LlamaModel) Parameters() map[string]*tensor.Tensor {
+func (m *Model) Parameters() map[string]*tensor.Tensor {
 	params := make(map[string]*tensor.Tensor)
 	params["TokenEmbedding"] = m.TokenEmbedding
 	for i, block := range m.Blocks {
@@ -199,5 +200,3 @@ func (m *LlamaModel) Parameters() map[string]*tensor.Tensor {
 	params["FinalNorm.Weight"] = m.FinalNorm.Weight
 	return params
 }
-
-

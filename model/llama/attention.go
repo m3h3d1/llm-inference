@@ -1,4 +1,4 @@
-package model
+package llama
 
 import (
 	"math"
@@ -16,7 +16,6 @@ type LlamaAttention struct {
 	NHeads   int
 	NKVHeads int
 	HeadDim  int
-	RopeDim  int
 	Tables   *RopeTables
 }
 
@@ -29,7 +28,6 @@ func NewLlamaAttention(embDim, nHeads, nKVHeads, headDim, ropeDim int, tables *R
 		NHeads:   nHeads,
 		NKVHeads: nKVHeads,
 		HeadDim:  headDim,
-		RopeDim:  ropeDim,
 		Tables:   tables,
 	}
 }

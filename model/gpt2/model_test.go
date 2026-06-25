@@ -1,4 +1,4 @@
-package model
+package gpt2
 
 import (
 	"testing"
@@ -71,7 +71,7 @@ func TestGPTModel(t *testing.T) {
 	cfg.EmbDim = 16
 	cfg.VocabSize = 100
 
-	model := NewGPTModel(cfg)
+	model := NewModel(cfg)
 
 	tokenIDs := []int{1, 2, 3, 4, 5}
 	logits := model.Forward(tokenIDs)
@@ -93,7 +93,7 @@ func TestForwardWithCache(t *testing.T) {
 	cfg.EmbDim = 16
 	cfg.VocabSize = 100
 
-	model := NewGPTModel(cfg)
+	model := NewModel(cfg)
 
 	// Prefill: 3 tokens
 	tokenIDs := []int{1, 2, 3}
@@ -147,7 +147,7 @@ func TestIntegrationWithTokenizer(t *testing.T) {
 	cfg.EmbDim = 16
 
 	tok := tokenizer.NewMock()
-	model := NewGPTModel(cfg)
+	model := NewModel(cfg)
 
 	prompt := "hello"
 	ids := tok.Encode(prompt)

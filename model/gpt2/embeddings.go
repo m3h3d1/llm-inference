@@ -1,4 +1,4 @@
-package model
+package gpt2
 
 import (
 	"github.com/llm/tensor"

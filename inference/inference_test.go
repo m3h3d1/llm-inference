@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/llm/config"
-	"github.com/llm/model"
+	gpt2 "github.com/llm/model/gpt2"
 	"github.com/llm/tokenizer"
 )
 
@@ -16,7 +16,7 @@ func TestGenerate(t *testing.T) {
 	cfg.VocabSize = 100
 	cfg.Seed = 42
 
-	m := model.NewGPTModel(cfg)
+	m := gpt2.NewModel(cfg)
 	tok := tokenizer.NewMock()
 
 	prompt := "h"
@@ -37,7 +37,7 @@ func TestGenerateStreaming(t *testing.T) {
 	cfg.VocabSize = 100
 	cfg.Seed = 42
 
-	m := model.NewGPTModel(cfg)
+	m := gpt2.NewModel(cfg)
 	tok := tokenizer.NewMock()
 
 	var deltas []string
@@ -79,7 +79,7 @@ func TestGenerateStreamingStopsOnEOS(t *testing.T) {
 	cfg.Seed = 0 // Use time-based seed for variety
 	cfg.Temperature = 0.0
 
-	m := model.NewGPTModel(cfg)
+	m := gpt2.NewModel(cfg)
 	tok := tokenizer.NewMock()
 
 	// Generate "hello" (tokens [4,5,3]) which maps to "hello".
