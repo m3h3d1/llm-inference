@@ -1,6 +1,9 @@
 package linear
 
 import (
+	"runtime"
+	"sync"
+
 	"github.com/llm/tensor"
 )
 
@@ -43,20 +46,50 @@ func (l *Linear) Forward(input *tensor.Tensor) *tensor.Tensor {
 
 	result := tensor.NewTensor(batch, seq, l.OutFeatures)
 
-	for b := 0; b < batch; b++ {
-		for s := 0; s < seq; s++ {
-			for o := 0; o < l.OutFeatures; o++ {
-				var sum float64
-				for i := 0; i < l.InFeatures; i++ {
-					sum += input.At(b, s, i) * l.Weight.At(0, o, i)
+	opCount := seq * l.OutFeatures * l.InFeatures
+	if opCount < 500000 {
+		for b := 0; b < batch; b++ {
+			for s := 0; s < seq; s++ {
+				for o := 0; o < l.OutFeatures; o++ {
+					var sum float64
+					for i := 0; i < l.InFeatures; i++ {
+						sum += input.At(b, s, i) * l.Weight.At(0, o, i)
+					}
+					if l.HasBias {
+						sum += l.Bias.At(0, 0, o)
+					}
+					result.Set(b, s, o, sum)
 				}
-				if l.HasBias {
-					sum += l.Bias.At(0, 0, o)
-				}
-				result.Set(b, s, o, sum)
 			}
 		}
+		return result
 	}
+
+	nw := runtime.GOMAXPROCS(0)
+	var wg sync.WaitGroup
+	for w := 0; w < nw; w++ {
+		wg.Add(1)
+		startO := w * l.OutFeatures / nw
+		endO := (w + 1) * l.OutFeatures / nw
+		go func(sO, eO int) {
+			defer wg.Done()
+			for b := 0; b < batch; b++ {
+				for s := 0; s < seq; s++ {
+					for o := sO; o < eO; o++ {
+						var sum float64
+						for i := 0; i < l.InFeatures; i++ {
+							sum += input.At(b, s, i) * l.Weight.At(0, o, i)
+						}
+						if l.HasBias {
+							sum += l.Bias.At(0, 0, o)
+						}
+						result.Set(b, s, o, sum)
+					}
+				}
+			}
+		}(startO, endO)
+	}
+	wg.Wait()
 
 	return result
 }

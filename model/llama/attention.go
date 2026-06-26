@@ -2,6 +2,8 @@ package llama
 
 import (
 	"math"
+	"runtime"
+	"sync"
 
 	"github.com/llm/linear"
 	llmmath "github.com/llm/math"
@@ -72,21 +74,33 @@ func (la *LlamaAttention) Forward(x *tensor.Tensor, mask *tensor.Tensor, startPo
 	scale := 1.0 / math.Sqrt(float64(la.HeadDim))
 
 	headOutputs := make([]*tensor.Tensor, la.NHeads)
-	for h := 0; h < la.NHeads; h++ {
-		kvIdx := h / nGroups
 
-		qHead := la.extractHead(q, h, la.HeadDim)
-		kHead := la.extractHead(k, kvIdx, la.HeadDim)
-		vHead := la.extractHead(v, kvIdx, la.HeadDim)
+	nw := runtime.GOMAXPROCS(0)
+	var wg sync.WaitGroup
+	for w := 0; w < nw; w++ {
+		wg.Add(1)
+		startH := w * la.NHeads / nw
+		endH := (w + 1) * la.NHeads / nw
+		go func(sH, eH int) {
+			defer wg.Done()
+			for h := sH; h < eH; h++ {
+				kvIdx := h / nGroups
 
-		scores := qHead.MatMul(kHead.Transpose())
-		scaledScores := scores.Scale(scale)
-		if mask != nil {
-			scaledScores = scaledScores.Add(mask)
-		}
-		weights := llmmath.Softmax(scaledScores, -1)
-		headOutputs[h] = weights.MatMul(vHead)
+				qHead := la.extractHead(q, h, la.HeadDim)
+				kHead := la.extractHead(k, kvIdx, la.HeadDim)
+				vHead := la.extractHead(v, kvIdx, la.HeadDim)
+
+				scores := qHead.MatMul(kHead.Transpose())
+				scaledScores := scores.Scale(scale)
+				if mask != nil {
+					scaledScores = scaledScores.Add(mask)
+				}
+				weights := llmmath.Softmax(scaledScores, -1)
+				headOutputs[h] = weights.MatMul(vHead)
+			}
+		}(startH, endH)
 	}
+	wg.Wait()
 
 	return la.Wo.Forward(la.mergeHeads(headOutputs))
 }
@@ -105,21 +119,33 @@ func (la *LlamaAttention) ForwardWithCache(x *tensor.Tensor, mask *tensor.Tensor
 	scale := 1.0 / math.Sqrt(float64(la.HeadDim))
 
 	headOutputs := make([]*tensor.Tensor, la.NHeads)
-	for h := 0; h < la.NHeads; h++ {
-		kvIdx := h / nGroups
 
-		qHead := la.extractHead(q, h, la.HeadDim)
-		kHead := la.extractHead(k, kvIdx, la.HeadDim)
-		vHead := la.extractHead(v, kvIdx, la.HeadDim)
+	nw := runtime.GOMAXPROCS(0)
+	var wg sync.WaitGroup
+	for w := 0; w < nw; w++ {
+		wg.Add(1)
+		startH := w * la.NHeads / nw
+		endH := (w + 1) * la.NHeads / nw
+		go func(sH, eH int) {
+			defer wg.Done()
+			for h := sH; h < eH; h++ {
+				kvIdx := h / nGroups
 
-		scores := qHead.MatMul(kHead.Transpose())
-		scaledScores := scores.Scale(scale)
-		if mask != nil {
-			scaledScores = scaledScores.Add(mask)
-		}
-		weights := llmmath.Softmax(scaledScores, -1)
-		headOutputs[h] = weights.MatMul(vHead)
+				qHead := la.extractHead(q, h, la.HeadDim)
+				kHead := la.extractHead(k, kvIdx, la.HeadDim)
+				vHead := la.extractHead(v, kvIdx, la.HeadDim)
+
+				scores := qHead.MatMul(kHead.Transpose())
+				scaledScores := scores.Scale(scale)
+				if mask != nil {
+					scaledScores = scaledScores.Add(mask)
+				}
+				weights := llmmath.Softmax(scaledScores, -1)
+				headOutputs[h] = weights.MatMul(vHead)
+			}
+		}(startH, endH)
 	}
+	wg.Wait()
 
 	output := la.Wo.Forward(la.mergeHeads(headOutputs))
 	return output, k, v

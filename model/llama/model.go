@@ -2,6 +2,8 @@ package llama
 
 import (
 	"fmt"
+	"runtime"
+	"sync"
 
 	"github.com/llm/config"
 	llmmath "github.com/llm/math"
@@ -103,20 +105,34 @@ func (m *Model) ForwardWithCache(tokenIDs []int, pastCache *model.KVCache) (*ten
 }
 
 func outputLogits(x *tensor.Tensor, outputWeight *tensor.Tensor) *tensor.Tensor {
-	batch, seq, embDim := x.Dimensions()[0], x.Dimensions()[1], x.Dimensions()[2]
+	dims := x.Dimensions()
+	batch, seq, embDim := dims[0], dims[1], dims[2]
 	vocabSize := outputWeight.Dimensions()[0]
 	result := tensor.NewTensor(batch, seq, vocabSize)
-	for b := 0; b < batch; b++ {
-		for s := 0; s < seq; s++ {
-			for v := 0; v < vocabSize; v++ {
-				var sum float64
-				for e := 0; e < embDim; e++ {
-					sum += x.At(b, s, e) * outputWeight.At(v, 0, e)
+
+	nw := runtime.GOMAXPROCS(0)
+	var wg sync.WaitGroup
+	for w := 0; w < nw; w++ {
+		wg.Add(1)
+		startV := w * vocabSize / nw
+		endV := (w + 1) * vocabSize / nw
+		go func(sV, eV int) {
+			defer wg.Done()
+			for b := 0; b < batch; b++ {
+				for s := 0; s < seq; s++ {
+					for v := sV; v < eV; v++ {
+						var sum float64
+						for e := 0; e < embDim; e++ {
+							sum += x.At(b, s, e) * outputWeight.At(v, 0, e)
+						}
+						result.Set(b, s, v, sum)
+					}
 				}
-				result.Set(b, s, v, sum)
 			}
-		}
+		}(startV, endV)
 	}
+	wg.Wait()
+
 	return result
 }
 
