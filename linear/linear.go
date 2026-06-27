@@ -3,7 +3,9 @@ package linear
 import (
 	"runtime"
 	"sync"
+	"time"
 
+	"github.com/llm/internal/benchprof"
 	"github.com/llm/tensor"
 )
 
@@ -43,6 +45,12 @@ func (l *Linear) Forward(input *tensor.Tensor) *tensor.Tensor {
 	dims := input.Dimensions()
 	batch := dims[0]
 	seq := dims[1]
+
+	if benchprof.Enabled() {
+		defer func(start time.Time) {
+			benchprof.RecordLinearForward(time.Since(start), batch, seq, l.InFeatures, l.OutFeatures)
+		}(time.Now())
+	}
 
 	result := tensor.NewTensor(batch, seq, l.OutFeatures)
 

@@ -3,7 +3,6 @@
 package inference
 
 import (
-	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/llm/gguf"
+	"github.com/llm/internal/benchprof"
 	"github.com/llm/model/llama"
 	"github.com/llm/tokenizer"
 	"github.com/llm/weights"
@@ -31,6 +31,7 @@ func TestSpeed(t *testing.T) {
 
 func speedTest(t *testing.T, path string) {
 	t0 := time.Now()
+	debug := benchprof.Enabled()
 
 	f, err := gguf.Open(path)
 	if err != nil {
@@ -66,27 +67,6 @@ func speedTest(t *testing.T, path string) {
 
 	nextID := shortIDs[len(shortIDs)-1]
 
-	type run struct {
-		name  string
-		iters int
-		fn    func(int)
-	}
-	runs := []run{
-		{"prefill-4t", 3, func(i int) {
-			_, cache := m.ForwardWithCache(shortIDs, nil)
-			_ = cache
-		}},
-		{"prefill-128t", 1, func(i int) {
-			_, cache := m.ForwardWithCache(longIDs, nil)
-			_ = cache
-		}},
-		{"decode-1t", 5, func(i int) {
-			_, cache := m.ForwardWithCache(shortIDs, nil)
-			_, cache = m.ForwardWithCache([]int{nextID}, cache)
-			_ = cache
-		}},
-	}
-
 	t.Logf("Model loaded in %v", loadTime)
 	t.Logf("Config: layers=%d emb=%d heads=%d kv=%d dff=%d",
 		cfg.NLayers, cfg.EmbDim, cfg.NHeads, cfg.NKVHeads, cfg.DFF)
@@ -95,25 +75,55 @@ func speedTest(t *testing.T, path string) {
 	// Warmup with short prompt only (long warmup is too expensive)
 	m.ForwardWithCache(shortIDs, nil)
 
-	for _, prefix := range runs {
+	if debug {
+		benchprof.ResetAll()
+	}
+
+	type prefillRun struct {
+		name     string
+		ids      []int
+		iters    int
+		tokPerOp int
+	}
+	for _, pr := range []prefillRun{
+		{"prefill-4t", shortIDs, 3, ntokens},
+		{"prefill-128t", longIDs, 1, 128},
+	} {
+		if debug {
+			benchprof.ResetAll()
+		}
 		start := time.Now()
-		for i := 0; i < prefix.iters; i++ {
-			prefix.fn(i)
+		for i := 0; i < pr.iters; i++ {
+			m.ForwardWithCache(pr.ids, nil)
 		}
 		elapsed := time.Since(start)
-		avgNs := float64(elapsed.Nanoseconds()) / float64(prefix.iters)
-		var metric string
-		switch prefix.name {
-		case "prefill-4t":
-			metric = fmt.Sprintf("%.1f tok/s", float64(ntokens)/elapsed.Seconds()*float64(prefix.iters))
-		case "prefill-128t":
-			metric = fmt.Sprintf("%.1f tok/s", 128.0/elapsed.Seconds()*float64(prefix.iters))
-		case "decode-1t":
-			metric = fmt.Sprintf("%.1f tok/s", 1.0/(avgNs/1e9))
-		}
-		t.Logf("%s: %d iters, avg %.0f ms/op, %s",
-			prefix.name, prefix.iters, avgNs/1e6, metric)
+		avgMs := float64(elapsed.Nanoseconds()) / float64(pr.iters) / 1e6
+		tokPerSec := float64(pr.tokPerOp) / elapsed.Seconds() * float64(pr.iters)
+		t.Logf("%s: %d iters, avg %.0f ms/op, %.1f tok/s", pr.name, pr.iters, avgMs, tokPerSec)
+		logProfile(t, debug)
 	}
+
+	// decode-1t: prefill shortIDs, then decode one token with cache
+	if debug {
+		benchprof.ResetAll()
+	}
+	var prefillTotal, decodeTotal time.Duration
+	start := time.Now()
+	for i := 0; i < 5; i++ {
+		tp := time.Now()
+		_, cache := m.ForwardWithCache(shortIDs, nil)
+		prefillTotal += time.Since(tp)
+
+		td := time.Now()
+		_, cache = m.ForwardWithCache([]int{nextID}, cache)
+		decodeTotal += time.Since(td)
+		_ = cache
+	}
+	elapsed := time.Since(start)
+	avgMs := float64(elapsed.Nanoseconds()) / 5 / 1e6
+	t.Logf("decode-1t: 5 iters, avg %.0f ms/op, %.1f tok/s", avgMs, 1.0/(avgMs/1e3))
+	t.Logf("  prefill: avg %v  decode: avg %v", prefillTotal/5, decodeTotal/5)
+	logProfile(t, debug)
 
 	logits, _ := m.ForwardWithCache(shortIDs, nil)
 	lastPos := len(shortIDs) - 1
@@ -135,20 +145,17 @@ func speedTest(t *testing.T, path string) {
 	}
 	decoded := tok.Decode(top5IDs[:])
 	t.Logf("Top-5 tokens: IDs=%v logits=%v decoded=%q", top5IDs, roundFloats(top5Vals[:]), decoded)
-
-	var sum float64
-	for v := 0; v < cfg.VocabSize; v++ {
-		sum += math.Exp(logits.At(0, lastPos, v) - top5Vals[0])
-	}
-	entropy := 0.0
-	for v := 0; v < cfg.VocabSize; v++ {
-		p := math.Exp(logits.At(0, lastPos, v)-top5Vals[0]) / sum
-		if p > 0 {
-			entropy -= p * math.Log2(p)
-		}
-	}
-	_ = entropy
 	t.Logf("Model size: %d MB", fileSize(path)/1024/1024)
+}
+
+func logProfile(t *testing.T, debug bool) {
+	if !debug {
+		return
+	}
+	s := benchprof.Summary()
+	if s != "" {
+		t.Logf("profile:\n%s", s)
+	}
 }
 
 func roundFloats(vals []float64) []float64 {

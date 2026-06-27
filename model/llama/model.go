@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/llm/config"
+	"github.com/llm/internal/benchprof"
 	llmmath "github.com/llm/math"
 	"github.com/llm/model"
 	"github.com/llm/tensor"
@@ -108,6 +110,13 @@ func outputLogits(x *tensor.Tensor, outputWeight *tensor.Tensor) *tensor.Tensor 
 	dims := x.Dimensions()
 	batch, seq, embDim := dims[0], dims[1], dims[2]
 	vocabSize := outputWeight.Dimensions()[0]
+
+	if benchprof.Enabled() {
+		defer func(start time.Time) {
+			benchprof.RecordOutputLogits(time.Since(start), batch, seq, embDim, vocabSize)
+		}(time.Now())
+	}
+
 	result := tensor.NewTensor(batch, seq, vocabSize)
 
 	nw := runtime.GOMAXPROCS(0)

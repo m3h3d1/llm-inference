@@ -4,7 +4,9 @@ import (
 	"math"
 	"runtime"
 	"sync"
+	"time"
 
+	"github.com/llm/internal/benchprof"
 	"github.com/llm/linear"
 	llmmath "github.com/llm/math"
 	"github.com/llm/tensor"
@@ -66,6 +68,12 @@ func (la *LlamaAttention) mergeHeads(heads []*tensor.Tensor) *tensor.Tensor {
 }
 
 func (la *LlamaAttention) Forward(x *tensor.Tensor, mask *tensor.Tensor, startPos int) *tensor.Tensor {
+	if benchprof.Enabled() {
+		defer func(start time.Time) {
+			benchprof.RecordAttentionForward(time.Since(start), x.Seq(), la.NHeads, la.NKVHeads, la.HeadDim)
+		}(time.Now())
+	}
+
 	q := applyRoPE(la.Wq.Forward(x), la.Tables, startPos, la.HeadDim)
 	k := applyRoPE(la.Wk.Forward(x), la.Tables, startPos, la.HeadDim)
 	v := la.Wv.Forward(x)
@@ -106,9 +114,17 @@ func (la *LlamaAttention) Forward(x *tensor.Tensor, mask *tensor.Tensor, startPo
 }
 
 func (la *LlamaAttention) ForwardWithCache(x *tensor.Tensor, mask *tensor.Tensor, pastK, pastV *tensor.Tensor, startPos int) (*tensor.Tensor, *tensor.Tensor, *tensor.Tensor) {
+	var k, v *tensor.Tensor
+
+	if benchprof.Enabled() {
+		defer func(start time.Time) {
+			benchprof.RecordAttentionForwardWithCache(time.Since(start), x.Seq(), k.Seq(), la.NHeads, la.NKVHeads, la.HeadDim)
+		}(time.Now())
+	}
+
 	q := applyRoPE(la.Wq.Forward(x), la.Tables, startPos, la.HeadDim)
-	k := applyRoPE(la.Wk.Forward(x), la.Tables, startPos, la.HeadDim)
-	v := la.Wv.Forward(x)
+	k = applyRoPE(la.Wk.Forward(x), la.Tables, startPos, la.HeadDim)
+	v = la.Wv.Forward(x)
 
 	if pastK != nil {
 		k = tensor.ConcatSeq([]*tensor.Tensor{pastK, k})
