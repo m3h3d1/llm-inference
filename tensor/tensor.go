@@ -72,6 +72,13 @@ func (t *Tensor) AtIdx(idx int) float64 {
 	return t.Data[idx]
 }
 
+// Row returns a slice view of the embed dimension at (batch, seq).
+// Uses 3-index form so the compiler can prove bounds on the result.
+func (t *Tensor) Row(b, s int) []float64 {
+	embed := t.Shape[2]
+	start := b*t.Shape[1]*embed + s*embed
+	return t.Data[start : start+embed : start+embed]
+}
 
 // Zeros creates a tensor filled with zeros
 func Zeros(batch, seq, embed int) *Tensor {

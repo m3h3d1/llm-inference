@@ -54,19 +54,27 @@ func (l *Linear) Forward(input *tensor.Tensor) *tensor.Tensor {
 
 	result := tensor.NewTensor(batch, seq, l.OutFeatures)
 
+	var biasSlice []float64
+	if l.HasBias {
+		biasSlice = l.Bias.Row(0, 0)
+	}
+
 	opCount := seq * l.OutFeatures * l.InFeatures
 	if opCount < 500000 {
 		for b := 0; b < batch; b++ {
 			for s := 0; s < seq; s++ {
+				inp := input.Row(b, s)
+				out := result.Row(b, s)
 				for o := 0; o < l.OutFeatures; o++ {
 					var sum float64
+					w := l.Weight.Row(0, o)
 					for i := 0; i < l.InFeatures; i++ {
-						sum += input.At(b, s, i) * l.Weight.At(0, o, i)
+						sum += inp[i] * w[i]
 					}
-					if l.HasBias {
-						sum += l.Bias.At(0, 0, o)
+					if biasSlice != nil {
+						sum += biasSlice[o]
 					}
-					result.Set(b, s, o, sum)
+					out[o] = sum
 				}
 			}
 		}
@@ -83,15 +91,18 @@ func (l *Linear) Forward(input *tensor.Tensor) *tensor.Tensor {
 			defer wg.Done()
 			for b := 0; b < batch; b++ {
 				for s := 0; s < seq; s++ {
+					inp := input.Row(b, s)
+					out := result.Row(b, s)
 					for o := sO; o < eO; o++ {
 						var sum float64
+						w := l.Weight.Row(0, o)
 						for i := 0; i < l.InFeatures; i++ {
-							sum += input.At(b, s, i) * l.Weight.At(0, o, i)
+							sum += inp[i] * w[i]
 						}
-						if l.HasBias {
-							sum += l.Bias.At(0, 0, o)
+						if biasSlice != nil {
+							sum += biasSlice[o]
 						}
-						result.Set(b, s, o, sum)
+						out[o] = sum
 					}
 				}
 			}

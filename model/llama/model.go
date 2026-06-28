@@ -129,12 +129,15 @@ func outputLogits(x *tensor.Tensor, outputWeight *tensor.Tensor) *tensor.Tensor 
 			defer wg.Done()
 			for b := 0; b < batch; b++ {
 				for s := 0; s < seq; s++ {
+					inp := x.Row(b, s)
+					out := result.Row(b, s)
 					for v := sV; v < eV; v++ {
 						var sum float64
+						w := outputWeight.Row(v, 0)
 						for e := 0; e < embDim; e++ {
-							sum += x.At(b, s, e) * outputWeight.At(v, 0, e)
+							sum += inp[e] * w[e]
 						}
-						result.Set(b, s, v, sum)
+						out[v] = sum
 					}
 				}
 			}
