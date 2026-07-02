@@ -19,15 +19,15 @@ go run ./cmd/main/... -profile=debug -prompt="Hello" -max_tokens=10
 
 ```bash
 # Greedy
-go run ./cmd/main/... -profile=smollm2_135m -gguf=SmolLM2-135M-Q8_0.gguf \
+go run ./cmd/main/... -gguf=models/llama/SmolLM2-135M-Instruct-Q8_0.gguf \
   -prompt="Hello" -temperature=0
 
 # Instruct model with ChatML
-go run ./cmd/main/... -profile=smollm2_135m -gguf=SmolLM2-135M-Q8_0.gguf \
+go run ./cmd/main/... -gguf=models/llama/SmolLM2-135M-Instruct-Q8_0.gguf \
   -chat -prompt="What is gravity?" -temperature=0.2 -max_tokens=100
 
 # Interactive multi-turn chat
-go run ./cmd/main/... -profile=smollm2_135m -gguf=SmolLM2-135M-Q8_0.gguf \
+go run ./cmd/main/... -gguf=models/llama/SmolLM2-135M-Instruct-Q8_0.gguf \
   -chat -interactive --temperature=0.2 --max_tokens=100
 ```
 
@@ -39,20 +39,19 @@ pip install torch transformers
 python3 scripts/convert_gpt2_weights.py --model gpt2
 
 # Greedy
-go run ./cmd/main/... -profile=small -weights=gpt2_124M.bin -format=bin \
-  -prompt="Hello" -temperature=0
+go run ./cmd/main/... -profile=124M -prompt="Hello" -temperature=0
 
 # Creative
-go run ./cmd/main/... -profile=small -weights=gpt2_124M.bin -format=bin \
-  -prompt="The meaning of life is" -temperature=0.8 -top_p=0.9 -seed=42
+go run ./cmd/main/... -profile=124M -prompt="The meaning of life is" \
+  -temperature=0.8 -top_p=0.9 -seed=42
 ```
 
 ### GPT-2 Medium 355M
 
 ```bash
 python3 scripts/convert_gpt2_weights.py --model gpt2-medium
-go run ./cmd/main/... -profile=medium -weights=gpt2_medium.bin -format=bin \
-  -prompt="Once upon a time" -temperature=0.8 -top_p=0.9 -seed=7
+go run ./cmd/main/... -profile=355M -prompt="Once upon a time" \
+  -temperature=0.8 -top_p=0.9 -seed=7
 ```
 
 ---
@@ -72,7 +71,7 @@ go run ./cmd/main/... -profile=medium -weights=gpt2_medium.bin -format=bin \
 - Goroutine parallelism on large matmuls and attention heads (500K-op threshold)
 - KV-cached autoregressive generation (prefill once, decode one token at a time)
 
-**Developer experience**
+**Tooling**
 - Pure Go — no external dependencies
 - Deterministic mode (`-seed` flag)
 - EOS detection, weight tying, shape validation
@@ -85,7 +84,7 @@ go run ./cmd/main/... -profile=medium -weights=gpt2_medium.bin -format=bin \
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `-profile` | string | `debug` | `debug` \| `small` \| `medium` \| `smollm2_135m` \| `smollm2_360m` \| `smollm2_1_7b` |
+| `-profile` | string | `debug` | `debug` \| `124M` \| `355M` |
 | `-weights` | string | `""` | GPT-2 weights file path |
 | `-format` | string | `json` | `json` or `bin` (GPT-2) |
 | `-gguf` | string | `""` | GGUF file path (overrides profile/weights/format) |

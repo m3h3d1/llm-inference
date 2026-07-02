@@ -2,24 +2,24 @@ package config
 
 import "testing"
 
-func TestDefaultConfig(t *testing.T) {
-	if DefaultConfig.EmbDim%DefaultConfig.NHeads != 0 {
-		t.Errorf("Default: EmbDim (%d) not divisible by NHeads (%d)", DefaultConfig.EmbDim, DefaultConfig.NHeads)
+func TestGPT2_124M(t *testing.T) {
+	if GPT2_124M.EmbDim%GPT2_124M.NHeads != 0 {
+		t.Errorf("GPT2_124M: EmbDim (%d) not divisible by NHeads (%d)", GPT2_124M.EmbDim, GPT2_124M.NHeads)
 	}
-	if DefaultConfig.VocabSize <= 0 {
-		t.Errorf("Default: VocabSize (%d) must be positive", DefaultConfig.VocabSize)
+	if GPT2_124M.VocabSize <= 0 {
+		t.Errorf("GPT2_124M: VocabSize (%d) must be positive", GPT2_124M.VocabSize)
 	}
-	if DefaultConfig.NLayers <= 0 {
-		t.Errorf("Default: NLayers (%d) must be positive", DefaultConfig.NLayers)
+	if GPT2_124M.NLayers <= 0 {
+		t.Errorf("GPT2_124M: NLayers (%d) must be positive", GPT2_124M.NLayers)
 	}
 }
 
-func TestGPT2Medium(t *testing.T) {
-	if GPT2Medium.EmbDim%GPT2Medium.NHeads != 0 {
-		t.Errorf("GPT2Medium: EmbDim (%d) not divisible by NHeads (%d)", GPT2Medium.EmbDim, GPT2Medium.NHeads)
+func TestGPT2_355M(t *testing.T) {
+	if GPT2_355M.EmbDim%GPT2_355M.NHeads != 0 {
+		t.Errorf("GPT2_355M: EmbDim (%d) not divisible by NHeads (%d)", GPT2_355M.EmbDim, GPT2_355M.NHeads)
 	}
-	if GPT2Medium.VocabSize <= 0 {
-		t.Errorf("GPT2Medium: VocabSize (%d) must be positive", GPT2Medium.VocabSize)
+	if GPT2_355M.VocabSize <= 0 {
+		t.Errorf("GPT2_355M: VocabSize (%d) must be positive", GPT2_355M.VocabSize)
 	}
 }
 

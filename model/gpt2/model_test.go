@@ -83,7 +83,7 @@ func TestTransformerBlock(t *testing.T) {
 }
 
 func TestGPTModel(t *testing.T) {
-	cfg := config.DefaultConfig
+	cfg := config.GPT2_124M
 	cfg.NLayers = 2
 	cfg.NHeads = 4
 	cfg.EmbDim = 16
@@ -111,7 +111,7 @@ func TestGPTModel(t *testing.T) {
 }
 
 func TestForwardWithCache(t *testing.T) {
-	cfg := config.DefaultConfig
+	cfg := config.GPT2_124M
 	cfg.NLayers = 2
 	cfg.NHeads = 4
 	cfg.EmbDim = 16
@@ -164,7 +164,7 @@ func TestForwardWithCache(t *testing.T) {
 }
 
 func TestIntegrationWithTokenizer(t *testing.T) {
-	cfg := config.DefaultConfig
+	cfg := config.GPT2_124M
 	cfg.NLayers = 2
 	cfg.NHeads = 4
 	cfg.EmbDim = 16

@@ -2,6 +2,7 @@
 """Convert HuggingFace GPT-2 weights to LLMs-from-scratch-go binary format."""
 
 import argparse
+import os
 import struct
 import numpy as np
 from transformers import GPT2Model
@@ -99,10 +100,11 @@ def convert():
     if args.output:
         out_path = args.output
     else:
-        size_labels = {"gpt2": "124M", "gpt2-medium": "medium"}
+        size_labels = {"gpt2": "124M", "gpt2-medium": "355M"}
         label = size_labels.get(args.model, args.model.replace("gpt2-", ""))
-        out_path = f"gpt2_{label}.bin"
+        out_path = f"models/gpt2/gpt2_{label}.bin"
 
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     with open(out_path, "wb") as f:
         f.write(struct.pack("<I", 0x4C4C4D00))
         f.write(struct.pack("<i", 1))

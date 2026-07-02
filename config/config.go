@@ -25,7 +25,7 @@ type Config struct {
 	StopTokens []int
 }
 
-var DefaultConfig = Config{
+var GPT2_124M = Config{
 	VocabSize:         50257,
 	ContextLen:        1024,
 	EmbDim:            768,
@@ -40,7 +40,7 @@ var DefaultConfig = Config{
 	EOSTokenID:        50256,
 }
 
-var GPT2Medium = Config{
+var GPT2_355M = Config{
 	VocabSize:         50257,
 	ContextLen:        1024,
 	EmbDim:            1024,

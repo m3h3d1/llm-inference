@@ -61,7 +61,7 @@ func TestGenerate(t *testing.T) {
 		vocabSize: 10,
 		logitFn:   func(v int) float64 { return float64(101 - v) },
 	}
-	cfg := config.DefaultConfig
+	cfg := config.GPT2_124M
 	cfg.VocabSize = 10
 	cfg.Temperature = 0.0
 
@@ -72,7 +72,7 @@ func TestGenerate(t *testing.T) {
 }
 
 func TestGenerateStreaming(t *testing.T) {
-	cfg := config.DefaultConfig
+	cfg := config.GPT2_124M
 	cfg.NLayers = 2
 	cfg.NHeads = 4
 	cfg.EmbDim = 16
@@ -111,7 +111,7 @@ func TestGenerateStreaming(t *testing.T) {
 }
 
 func TestGenerateBasic(t *testing.T) {
-	cfg := config.DefaultConfig
+	cfg := config.GPT2_124M
 	cfg.NLayers = 1
 	cfg.NHeads = 4
 	cfg.EmbDim = 8
@@ -143,7 +143,7 @@ func TestGenerateRepetitionPenalty(t *testing.T) {
 		vocabSize: 10,
 		logitFn:   func(v int) float64 { return float64(100 - v) },
 	}
-	cfg := config.DefaultConfig
+	cfg := config.GPT2_124M
 	cfg.VocabSize = 10
 	cfg.Temperature = 0.0
 	cfg.RepetitionPenalty = 2.0
@@ -173,7 +173,7 @@ func TestGenerateTemperature(t *testing.T) {
 		vocabSize: 10,
 		logitFn:   func(v int) float64 { return float64(101 - v) },
 	}
-	cfg := config.DefaultConfig
+	cfg := config.GPT2_124M
 	cfg.VocabSize = 10
 	cfg.Seed = 42
 	cfg.Temperature = 0.001
@@ -212,7 +212,7 @@ func TestGenerateEOSWithMock(t *testing.T) {
 
 	tok := tokenizer.NewMock()
 
-	cfg := config.DefaultConfig
+	cfg := config.GPT2_124M
 	cfg.VocabSize = 10
 	cfg.EOSTokenID = 5
 	cfg.Temperature = 0.0

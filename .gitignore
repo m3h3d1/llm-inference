@@ -33,13 +33,13 @@ go.work.sum
 *.pth
 *.pt
 *.onnx
+*.gguf
 weights/data/
 outputs/
 logs/
-*.md
 
 test_weights.json
 main
-/models
 
+*.md
 !README.md

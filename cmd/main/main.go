@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	profile := flag.String("profile", "debug", "Model profile: debug (mock, no weights), small (GPT-2 Small 124M), or medium (GPT-2 Medium 355M)")
+	profile := flag.String("profile", "debug", "Model profile: debug (mock, no weights), 124M (GPT-2 Small), or 355M (GPT-2 Medium)")
 	weightsPath := flag.String("weights", "", "Path to the weights file")
 	format := flag.String("format", "json", "Weight format: json or bin")
 	ggufPath := flag.String("gguf", "", "Path to a GGUF model file (overrides profile/weights/format)")
@@ -45,10 +45,18 @@ func main() {
 
 	var cfg config.Config
 	switch *profile {
-	case "small":
-		cfg = config.DefaultConfig
-	case "medium":
-		cfg = config.GPT2Medium
+	case "124M":
+		cfg = config.GPT2_124M
+		if *weightsPath == "" {
+			*weightsPath = "models/gpt2/gpt2_124M.bin"
+			*format = "bin"
+		}
+	case "355M":
+		cfg = config.GPT2_355M
+		if *weightsPath == "" {
+			*weightsPath = "models/gpt2/gpt2_355M.bin"
+			*format = "bin"
+		}
 	case "debug":
 		cfg = config.Config{
 			VocabSize:         1000,
@@ -65,7 +73,7 @@ func main() {
 			EOSTokenID:        50256,
 		}
 	default:
-		fmt.Printf("Unknown profile: %s (use debug, small, or medium)\n", *profile)
+		fmt.Printf("Unknown profile: %s (use debug, 124M, or 355M)\n", *profile)
 		return
 	}
 	cfg.RepetitionPenalty = *repPenalty
