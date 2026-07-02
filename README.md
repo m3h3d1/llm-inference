@@ -25,6 +25,10 @@ go run ./cmd/main/... -profile=smollm2_135m -gguf=SmolLM2-135M-Q8_0.gguf \
 # Instruct model with ChatML
 go run ./cmd/main/... -profile=smollm2_135m -gguf=SmolLM2-135M-Q8_0.gguf \
   -chat -prompt="What is gravity?" -temperature=0.2 -max_tokens=100
+
+# Interactive multi-turn chat
+go run ./cmd/main/... -profile=smollm2_135m -gguf=SmolLM2-135M-Q8_0.gguf \
+  -chat -interactive --temperature=0.2 --max_tokens=100
 ```
 
 ### GPT-2 Small 124M
@@ -92,6 +96,7 @@ go run ./cmd/main/... -profile=medium -weights=gpt2_medium.bin -format=bin \
 | `-repetition_penalty` | float | 1.0 | >1.0 penalizes repeated tokens (useful for GPT-2) |
 | `-seed` | int | 0 | Random seed (0 = time-based) |
 | `-chat` | bool | false | Wrap prompt in ChatML template (for instruct models) |
+| `-interactive` | bool | false | Interactive multi-turn chat (requires --chat) |
 | `-strict` | bool | false | Fail on missing/extra weights (GPT-2 only) |
 
 ---
@@ -126,12 +131,7 @@ Two model implementations behind a shared interface:
 - SmolLM2-135M, SmolLM2-360M, SmolLM2-1.7B (via GGUF, Q8_0)
 - Greedy and nucleus sampling with temperature, top-p, seed, repetition penalty
 - KV-cached streaming generation
-- ChatML prompt format for instruct models (`--chat` flag)
-
-**Not yet implemented:**
-- Interactive multi-turn chat
-- Top-K sampling
-- Perplexity evaluation
+- ChatML prompt formatting and interactive multi-turn chat
 
 ---
 

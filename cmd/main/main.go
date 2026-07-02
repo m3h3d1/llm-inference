@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/llm/config"
 	"github.com/llm/gguf"
@@ -26,11 +29,17 @@ func main() {
 	topP := flag.Float64("top_p", 1.0, "Nucleus sampling threshold (1.0 = disabled)")
 	seed := flag.Int64("seed", 0, "Random seed (0 = time-based)")
 	chatMode := flag.Bool("chat", false, "Use ChatML format (for instruct models)")
+	interactive := flag.Bool("interactive", false, "Interactive multi-turn chat (requires --chat)")
 
 	flag.Parse()
 
+	if *interactive && !*chatMode {
+		fmt.Println("Error: --interactive requires --chat")
+		return
+	}
+
 	if *ggufPath != "" {
-		runGGUF(*ggufPath, *prompt, *maxTokens, *repPenalty, *temperature, *topP, *seed, *chatMode)
+		runGGUF(*ggufPath, *prompt, *maxTokens, *repPenalty, *temperature, *topP, *seed, *chatMode, *interactive)
 		return
 	}
 
@@ -100,7 +109,7 @@ func main() {
 	fmt.Println()
 }
 
-func runGGUF(path, prompt string, maxTokens int, repPenalty, temperature, topP float64, seed int64, chatMode bool) {
+func runGGUF(path, prompt string, maxTokens int, repPenalty, temperature, topP float64, seed int64, chatMode, interactive bool) {
 	fmt.Printf("Loading GGUF model: %s\n", path)
 	f, err := gguf.Open(path)
 	if err != nil {
@@ -140,18 +149,67 @@ func runGGUF(path, prompt string, maxTokens int, repPenalty, temperature, topP f
 	fmt.Printf("Tokenizer loaded: %d tokens\n", len(tok.Vocab))
 
 	if chatMode {
-		systemPrompt := "You are a helpful AI assistant named SmolLM, trained by Hugging Face"
-		prompt = "<|im_start|>system\n" + systemPrompt + "<|im_end|>\n<|im_start|>user\n" + prompt + "<|im_end|>\n<|im_start|>assistant\n"
 		if id, ok := tok.Vocab["<|im_end|>"]; ok {
 			cfg.StopTokens = append(cfg.StopTokens, id)
 		}
-		fmt.Printf("Prompt formatted with ChatML\n")
+	}
+
+	if interactive {
+		interactiveChat(cfg, m, tok, maxTokens)
+		return
+	}
+
+	if chatMode {
+		systemPrompt := "You are a helpful AI assistant named SmolLM, trained by Hugging Face"
+		prompt = "<|im_start|>system\n" + systemPrompt + "<|im_end|>\n<|im_start|>user\n" + prompt + "<|im_end|>\n<|im_start|>assistant\n"
 	}
 
 	fmt.Printf("Generating text with prompt: %s\n", prompt)
 	fmt.Print("Result: ")
 	inference.GenerateStreaming(cfg, m, tok, prompt, maxTokens, func(text string) {
-		fmt.Print(text)
+		fmt.Print(strings.TrimSuffix(text, "<|im_end|>"))
 	})
 	fmt.Println()
+}
+
+func interactiveChat(cfg config.Config, m *llama.Model, tok *tokenizer.Tokenizer, maxTokens int) {
+	type message struct {
+		role    string
+		content string
+	}
+	var history []message
+	systemPrompt := "You are a helpful AI assistant named SmolLM, trained by Hugging Face"
+
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print("\n> ")
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			break
+		}
+		line = strings.TrimSpace(line)
+		if line == "" || line == "exit" || line == "quit" {
+			break
+		}
+
+		history = append(history, message{"user", line})
+
+		var b strings.Builder
+		b.WriteString("<|im_start|>system\n" + systemPrompt + "<|im_end|>\n")
+		for _, msg := range history {
+			b.WriteString("<|im_start|>" + msg.role + "\n" + msg.content + "<|im_end|>\n")
+		}
+		b.WriteString("<|im_start|>assistant\n")
+		prompt := b.String()
+
+		var response strings.Builder
+		inference.GenerateStreaming(cfg, m, tok, prompt, maxTokens, func(text string) {
+			clean := strings.TrimSuffix(text, "<|im_end|>")
+			fmt.Print(clean)
+			response.WriteString(clean)
+		})
+		fmt.Println()
+
+		history = append(history, message{"assistant", strings.TrimSpace(response.String())})
+	}
 }
