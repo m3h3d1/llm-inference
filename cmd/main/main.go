@@ -70,7 +70,7 @@ func main() {
 		tok = tokenizer.NewMock()
 	} else {
 		var err error
-		tok, err = tokenizer.NewFromFiles("assets/tokenizer/vocab.json", "assets/tokenizer/merges.txt")
+		tok, err = tokenizer.NewFromFiles("assets/gpt2/bpe-tokenizer-vocab.json", "assets/gpt2/bpe-tokenizer-merges.txt")
 		if err != nil {
 			fmt.Printf("Error loading tokenizer: %v\n", err)
 			return

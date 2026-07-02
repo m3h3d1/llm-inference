@@ -54,7 +54,7 @@ func TestRoundTrip(t *testing.T) {
 
 func TestNewFromFiles(t *testing.T) {
 	t.Run("load gpt2 assets", func(t *testing.T) {
-		tok, err := NewFromFiles("../assets/tokenizer/vocab.json", "../assets/tokenizer/merges.txt")
+		tok, err := NewFromFiles("../assets/gpt2/bpe-tokenizer-vocab.json", "../assets/gpt2/bpe-tokenizer-merges.txt")
 		if err != nil {
 			t.Fatalf("Failed to load files: %v", err)
 		}
@@ -88,7 +88,7 @@ func TestNewFromFiles(t *testing.T) {
 
 func TestNewFromFilesErrors(t *testing.T) {
 	t.Run("missing vocab file", func(t *testing.T) {
-		_, err := NewFromFiles("/nonexistent/path/vocab.json", "../assets/tokenizer/merges.txt")
+		_, err := NewFromFiles("/nonexistent/path/vocab.json", "../assets/gpt2/bpe-tokenizer-merges.txt")
 		if err == nil {
 			t.Fatal("expected error for missing vocab file")
 		}
@@ -177,7 +177,7 @@ func TestAddedTokens(t *testing.T) {
 
 func TestIntegration(t *testing.T) {
 	t.Run("encode with real data", func(t *testing.T) {
-		tok, err := NewFromFiles("../assets/tokenizer/vocab.json", "../assets/tokenizer/merges.txt")
+		tok, err := NewFromFiles("../assets/gpt2/bpe-tokenizer-vocab.json", "../assets/gpt2/bpe-tokenizer-merges.txt")
 		if err != nil {
 			t.Fatalf("Failed to load: %v", err)
 		}
