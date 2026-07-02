@@ -20,6 +20,9 @@ type Config struct {
 	RopeTheta  float64
 	RmsNormEps float64
 	EOSTokenID int
+
+	// Extra stop tokens (e.g., <|im_end|> for ChatML instruct models)
+	StopTokens []int
 }
 
 var DefaultConfig = Config{

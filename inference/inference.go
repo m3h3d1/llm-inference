@@ -55,6 +55,16 @@ func GenerateStreaming(cfg config.Config, m Model, tok *tokenizer.Tokenizer, pro
 		if cfg.EOSTokenID != 0 && nextTokenID == cfg.EOSTokenID {
 			break
 		}
+		isStop := false
+		for _, stopID := range cfg.StopTokens {
+			if nextTokenID == stopID {
+				isStop = true
+				break
+			}
+		}
+		if isStop {
+			break
+		}
 
 		ids = append(ids, nextTokenID)
 		logits, cache = m.ForwardWithCache([]int{nextTokenID}, cache)

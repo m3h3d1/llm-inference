@@ -25,11 +25,12 @@ func main() {
 	temperature := flag.Float64("temperature", 1.0, "Sampling temperature (0 = greedy, 1.0 = default)")
 	topP := flag.Float64("top_p", 1.0, "Nucleus sampling threshold (1.0 = disabled)")
 	seed := flag.Int64("seed", 0, "Random seed (0 = time-based)")
+	chatMode := flag.Bool("chat", false, "Use ChatML format (for instruct models)")
 
 	flag.Parse()
 
 	if *ggufPath != "" {
-		runGGUF(*ggufPath, *prompt, *maxTokens, *repPenalty, *temperature, *topP, *seed)
+		runGGUF(*ggufPath, *prompt, *maxTokens, *repPenalty, *temperature, *topP, *seed, *chatMode)
 		return
 	}
 
@@ -99,7 +100,7 @@ func main() {
 	fmt.Println()
 }
 
-func runGGUF(path, prompt string, maxTokens int, repPenalty, temperature, topP float64, seed int64) {
+func runGGUF(path, prompt string, maxTokens int, repPenalty, temperature, topP float64, seed int64, chatMode bool) {
 	fmt.Printf("Loading GGUF model: %s\n", path)
 	f, err := gguf.Open(path)
 	if err != nil {
@@ -137,6 +138,15 @@ func runGGUF(path, prompt string, maxTokens int, repPenalty, temperature, topP f
 		return
 	}
 	fmt.Printf("Tokenizer loaded: %d tokens\n", len(tok.Vocab))
+
+	if chatMode {
+		systemPrompt := "You are a helpful AI assistant named SmolLM, trained by Hugging Face"
+		prompt = "<|im_start|>system\n" + systemPrompt + "<|im_end|>\n<|im_start|>user\n" + prompt + "<|im_end|>\n<|im_start|>assistant\n"
+		if id, ok := tok.Vocab["<|im_end|>"]; ok {
+			cfg.StopTokens = append(cfg.StopTokens, id)
+		}
+		fmt.Printf("Prompt formatted with ChatML\n")
+	}
 
 	fmt.Printf("Generating text with prompt: %s\n", prompt)
 	fmt.Print("Result: ")
