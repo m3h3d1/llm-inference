@@ -41,16 +41,16 @@ func (m *mockFixedModel) ForwardWithCache(tokenIDs []int, pastCache *model.KVCac
 }
 
 func TestArgmax(t *testing.T) {
-	if got := argmax([]float64{1, 5, 3}); got != 1 {
+	if got := Argmax([]float64{1, 5, 3}); got != 1 {
 		t.Errorf("basic: expected 1, got %d", got)
 	}
-	if got := argmax([]float64{5, 5, 3}); got != 0 {
+	if got := Argmax([]float64{5, 5, 3}); got != 0 {
 		t.Errorf("ties: expected 0 (first), got %d", got)
 	}
-	if got := argmax([]float64{42}); got != 0 {
+	if got := Argmax([]float64{42}); got != 0 {
 		t.Errorf("single element: expected 0, got %d", got)
 	}
-	if got := argmax([]float64{-10, -5, -1, -3}); got != 2 {
+	if got := Argmax([]float64{-10, -5, -1, -3}); got != 2 {
 		t.Errorf("negatives: expected 2, got %d", got)
 	}
 }

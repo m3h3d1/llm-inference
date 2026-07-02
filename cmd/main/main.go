@@ -4,14 +4,18 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/llm/config"
 	"github.com/llm/gguf"
 	"github.com/llm/inference"
+	"github.com/llm/model"
 	gpt2 "github.com/llm/model/gpt2"
 	"github.com/llm/model/llama"
+	"github.com/llm/tensor"
 	"github.com/llm/tokenizer"
 	"github.com/llm/weights"
 )
@@ -188,6 +192,21 @@ func interactiveChat(cfg config.Config, m *llama.Model, tok *tokenizer.Tokenizer
 	var history []message
 	systemPrompt := "You are a helpful AI assistant named SmolLM, trained by Hugging Face"
 
+	var rng *rand.Rand
+	if cfg.Seed != 0 {
+		rng = rand.New(rand.NewSource(cfg.Seed))
+	} else {
+		rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	}
+
+	var cache *model.KVCache
+	var allIDs []int
+
+	systemText := "<|im_start|>system\n" + systemPrompt + "<|im_end|>\n"
+	systemIDs := tok.Encode(systemText)
+	_, cache = m.ForwardWithCache(systemIDs, nil)
+	allIDs = append(allIDs, systemIDs...)
+
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		fmt.Print("\n> ")
@@ -202,22 +221,64 @@ func interactiveChat(cfg config.Config, m *llama.Model, tok *tokenizer.Tokenizer
 
 		history = append(history, message{"user", line})
 
-		var b strings.Builder
-		b.WriteString("<|im_start|>system\n" + systemPrompt + "<|im_end|>\n")
-		for _, msg := range history {
-			b.WriteString("<|im_start|>" + msg.role + "\n" + msg.content + "<|im_end|>\n")
-		}
-		b.WriteString("<|im_start|>assistant\n")
-		prompt := b.String()
+		turnText := "<|im_start|>user\n" + line + "<|im_end|>\n<|im_start|>assistant\n"
+		turnIDs := tok.Encode(turnText)
+		allIDs = append(allIDs, turnIDs...)
+
+		var logits *tensor.Tensor
+		logits, cache = m.ForwardWithCache(turnIDs, cache)
+		prevDecoded := tok.Decode(allIDs)
 
 		var response strings.Builder
-		inference.GenerateStreaming(cfg, m, tok, prompt, maxTokens, func(text string) {
-			clean := strings.TrimSuffix(text, "<|im_end|>")
+		for i := 0; i < maxTokens; i++ {
+			lastPos := logits.Seq() - 1
+			lastTokenLogits := make([]float64, cfg.VocabSize)
+			for v := 0; v < cfg.VocabSize; v++ {
+				lastTokenLogits[v] = logits.At(0, lastPos, v)
+			}
+
+			if cfg.RepetitionPenalty > 1.0 {
+				lastTokenLogits = inference.ApplyRepetitionPenalty(lastTokenLogits, allIDs, cfg.RepetitionPenalty)
+			}
+
+			var nextTokenID int
+			if cfg.Temperature == 0 {
+				nextTokenID = inference.Argmax(lastTokenLogits)
+			} else {
+				l := inference.ApplyTemperature(lastTokenLogits, cfg.Temperature)
+				l = inference.ApplyTopP(l, cfg.TopP)
+				probs := inference.Softmax(l)
+				nextTokenID = inference.Sample(probs, rng)
+			}
+
+			if cfg.EOSTokenID != 0 && nextTokenID == cfg.EOSTokenID {
+				break
+			}
+			isStop := false
+			for _, stopID := range cfg.StopTokens {
+				if nextTokenID == stopID {
+					isStop = true
+					break
+				}
+			}
+			if isStop {
+				break
+			}
+
+			allIDs = append(allIDs, nextTokenID)
+			logits, cache = m.ForwardWithCache([]int{nextTokenID}, cache)
+
+			decoded := tok.Decode(allIDs)
+			delta := decoded[len(prevDecoded):]
+			clean := strings.TrimSuffix(delta, "<|im_end|>")
 			fmt.Print(clean)
 			response.WriteString(clean)
-		})
+			prevDecoded = decoded
+		}
 		fmt.Println()
 
 		history = append(history, message{"assistant", strings.TrimSpace(response.String())})
 	}
 }
+
+

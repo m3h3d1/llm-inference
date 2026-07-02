@@ -6,8 +6,8 @@ import (
 	"github.com/llm/config"
 	"github.com/llm/linear"
 	"github.com/llm/math"
-	"github.com/llm/tensor"
 	"github.com/llm/model"
+	"github.com/llm/tensor"
 )
 
 type Model struct {

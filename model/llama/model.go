@@ -2,6 +2,7 @@ package llama
 
 import (
 	"fmt"
+	"math"
 	"runtime"
 	"sync"
 	"time"
@@ -90,6 +91,20 @@ func (m *Model) ForwardWithCache(tokenIDs []int, pastCache *model.KVCache) (*ten
 	var mask *tensor.Tensor
 	if pastCache == nil {
 		mask = llmmath.CreateCausalMask(len(tokenIDs))
+	} else if len(tokenIDs) > 1 {
+		pastLen := pastCache.SeqLen
+		newLen := len(tokenIDs)
+		totalLen := pastLen + newLen
+		mask = tensor.NewTensor(1, newLen, totalLen)
+		for i := 0; i < newLen; i++ {
+			for j := 0; j < totalLen; j++ {
+				if j < pastLen || j <= pastLen+i {
+					mask.Set(0, i, j, 0.0)
+				} else {
+					mask.Set(0, i, j, -math.Inf(1))
+				}
+			}
+		}
 	}
 
 	for i, block := range m.Blocks {

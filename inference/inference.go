@@ -44,7 +44,7 @@ func GenerateStreaming(cfg config.Config, m Model, tok *tokenizer.Tokenizer, pro
 
 		var nextTokenID int
 		if cfg.Temperature == 0 {
-			nextTokenID = argmax(lastTokenLogits)
+			nextTokenID = Argmax(lastTokenLogits)
 		} else {
 			logits := ApplyTemperature(lastTokenLogits, cfg.Temperature)
 			logits = ApplyTopP(logits, cfg.TopP)
@@ -84,7 +84,7 @@ func Generate(cfg config.Config, m Model, tok *tokenizer.Tokenizer, prompt strin
 	return GenerateStreaming(cfg, m, tok, prompt, maxNewTokens, nil)
 }
 
-func argmax(scores []float64) int {
+func Argmax(scores []float64) int {
 	maxScore := scores[0]
 	maxIndex := 0
 
